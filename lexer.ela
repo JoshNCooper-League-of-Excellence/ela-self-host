@@ -656,12 +656,16 @@ impl Lexer {
         mut value := token_builder.get_string();
         if self.keywords.contains(value.as_str()) {
           state.lookahead_buffer.push(Token::new(location, value, self.keywords.get(value.as_str()).unwrap()));
+          return;
         } else if self.reserved.contains(value.as_str(), fn (a: str, b: str) -> bool {
+          if a == b then println(("got reserved word", a, b));
           return a == b;
         }) {
-          // new_value = format("$%", (value,), FormatOptions::default());
-          // value.deinit();
-          // value = new_value;
+          // we prepend a $ on C's reserved words so we don't have any invisible overlap between the source
+          // and target language.s
+          new_value := format("$%", (value,), FormatOptions::default());
+          value.deinit();
+          value = new_value;
         }
         state.lookahead_buffer.push(Token::new(location, value, TType::Identifier));
         return;
@@ -671,5 +675,3 @@ impl Lexer {
     state.lookahead_buffer.push(Token::Eof());
   }
 }
-
-
