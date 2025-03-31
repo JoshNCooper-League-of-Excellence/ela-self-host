@@ -10,4 +10,8 @@ main :: fn() {
     lexer.get_token(&mut state);
   }
   println(("pos:", state.pos, "len:", state.input.length));
+
+  for token in state.lookahead_buffer {
+    println(token.to_string());
+  }
 }

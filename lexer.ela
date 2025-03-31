@@ -139,8 +139,15 @@ impl SourceLocation {
   }
 
   to_string :: fn(self) -> String {
-    filename := SourceLocation::files()[self.file];
+    files := SourceLocation::files();
+    filename := (*files)[self.file];
     return format("%:%:%", (filename, self.line, self.column), FormatOptions::default());
+  }
+}
+
+impl Format for SourceLocation {
+  format :: fn(*const self, builder: *mut StringBuilder, mut options: FormatOptions) {
+    builder.append_then_free(self.to_string());
   }
 }
 
@@ -194,6 +201,33 @@ impl Token {
     };
   }
 };
+
+impl Format for Token {
+  format :: fn(*const self, builder: *mut StringBuilder, mut options: FormatOptions) {
+    builder.append("Token {\n  location: ");
+    builder.append_then_free(self.location.to_string());
+    mut value: Option!<String>;
+    if self.value.data {
+      value = Some(*self.value.data);
+    } else {
+      value = None();
+    }
+    old := options.quote_strings;
+    options.quote_strings = true;
+    builder.appendf("\n  type: %,\n  value: %\n}", (self.type, value), options);
+    options.quote_strings = old;
+  }
+}
+
+impl Token {
+  to_string :: fn(self) -> String {
+    mut builder: StringBuilder;
+    defer builder.deinit();
+    self.format(&mut builder, FormatOptions::default());
+    return builder.get_string();
+  }
+}
+
 
 init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords: *mut Map!<str, TType>) {
   keywords.insert("const", TType::Const);
@@ -559,6 +593,7 @@ impl Lexer {
               state.pos++;
               state.col++;
             } else {
+              // I don't think this error is possible. perhaps it is.
               panic("incomplete escape sequence at end of input");
               // throw_error("incomplete escape sequence at end of input", {location});
             }
@@ -569,11 +604,64 @@ impl Lexer {
             c = state.input[state.pos];
           }
         }
+        if c != '\"' {
+          panic("unescaped string");
+        }
         state.pos++;
         state.col++;
         state.lookahead_buffer.push(Token::new(location, token_builder.get_string(), TType::String));
         return;
       }
+
+      // Identifiers, Keywords.
+      // Check if the character is alphabetic, underscore, or a UTF-8 start byte
+      if (isalpha(c) || c == '_' || (c & 0x80) != 0) { 
+        while (state.pos < state.input.length) {
+          if (isalnum(c) || c == '_') {
+            token_builder.append_byte(c);
+            state.pos++;
+            state.col++;
+            c = state.input[state.pos];
+          // Check if the character is a UTF-8 start byte
+          } else if ((c & 0x80) != 0) { 
+            mut num_bytes := 0;
+            if (c & 0xE0) == 0xC0 {
+              num_bytes = 2;
+            } else if (c & 0xF0) == 0xE0 {
+              num_bytes = 3;
+            } else if (c & 0xF8) == 0xF0 {
+              num_bytes = 4;
+            } else { 
+              // Stop processing if it's not a valid UTF-8 start byte
+              break; 
+            } 
+            for i in 0..num_bytes {
+              if (state.pos >= state.input.length || (i > 0 && (state.input[state.pos] & 0xC0) != 0x80)) {
+                break; // Stop processing if it's not a valid UTF-8 continuation byte
+              }
+              token_builder.append_byte(state.input[state.pos]);
+              state.pos++;
+              state.col++;
+            }
+            c = state.input[state.pos];
+          } else {
+            break; // Stop processing if it's not a valid identifier character
+          }
+        }
+
+        mut value := token_builder.get_string();
+        if self.keywords.contains(value.as_str()) {
+          state.lookahead_buffer.push(Token::new(location, value, self.keywords.get(value.as_str()).unwrap()));
+        } else if self.reserved.contains(value.as_str(), fn (a: str, b: str) -> bool {
+          return a == b;
+        }) {
+          // new_value = format("$%", (value,), FormatOptions::default());
+          // value.deinit();
+          // value = new_value;
+        }
+        state.lookahead_buffer.push(Token::new(location, value, TType::Identifier));
+        return;
+      } 
     }
 
     state.lookahead_buffer.push(Token::Eof());
