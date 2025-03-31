@@ -707,6 +707,70 @@ impl Lexer {
           // throw_error("unable to lex operator :: '" + current_match + '\'', {location});
         }
       }
+
+      if isdigit(c) {
+        mut is_float: bool = false;
+        mut is_hex: bool = false;
+        mut is_bin: bool = false;
+        if c == '0' && (state.input[state.pos + 1] == 'x' || state.input[state.pos + 1] == 'X') {
+          is_hex = true;
+          state.pos += 2; // Skip '0x'
+          state.col += 2;
+          c = state.input[state.pos];
+        } else if c == '0' && (state.input[state.pos + 1] == 'b' || state.input[state.pos + 1] == 'B') {
+          is_bin = true;
+          state.pos += 2; // Skip '0b'
+          state.col += 2;
+          c = state.input[state.pos];
+        }
+
+        while state.pos < state.input.length && (isdigit(c) || c == '.' || (is_hex && isxdigit(c)) ||
+                            (is_bin && (c == '0' || c == '1')) || c == '_') {
+          if (c == '_') {
+            state.pos++;
+            state.col++;
+            c = state.input[state.pos];
+          }
+          if (c == '.' && state.pos + 1 < state.input.length && state.input[state.pos + 1] == '.') {
+            break;
+          }
+          if (c == '.') {
+            if (is_float) {
+              panic("got too many '.' periods in a float literal.");
+              // ! reimplement throw_error
+              // throw_error("got too many '.' periods in a float literal.", {location});
+            }
+            is_float = true;
+          }
+          token_builder.append_byte(c);
+          state.pos++;
+          state.col++;
+          c = state.input[state.pos];
+          if (c == '_') {
+            state.pos++;
+            state.col++;
+            c = state.input[state.pos];
+          }
+        }
+
+        mut value := token_builder.get_string();
+
+        if (is_hex) {
+          mut hex := String::from("0x");
+          hex.append_then_free(value);
+          state.lookahead_buffer.push(Token::new(location, hex, TType::Integer));
+        } else if (is_bin) {
+          mut bin := String::from("0b");
+          bin.append_then_free(value);
+          state.lookahead_buffer.push(Token::new(location, bin, TType::Integer));
+        } else if (!is_float) {
+          state.lookahead_buffer.push(Token::new(location, value, TType::Integer));
+        } else {
+          state.lookahead_buffer.push(Token::new(location, value, TType::Float));
+        }
+        return;
+      }
+
     }
 
     state.lookahead_buffer.push(Token::Eof());
