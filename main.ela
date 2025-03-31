@@ -1,10 +1,8 @@
 import fmt::*;
 import interned::*;
 import fs::*;
-#include "lexer.ela";
+import lexer::*;
 
 main :: fn() {
-  parent := parent_path(canonical_path("./").unwrap()).unwrap();
-  printlnf("parent: %", (parent,));
-  printlnf("current: %", (Directory::current(),));
+  mut state := State::from_file(String::from("ela_source/main.ela"));
 }

@@ -1,7 +1,7 @@
 import map::*;
 import fmt::*;
 import fs::*;
-
+import interned::*;
 alias InternedString :: Interned!<String>;
 
 TType :: enum {
