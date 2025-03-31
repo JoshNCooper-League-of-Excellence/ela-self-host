@@ -228,7 +228,6 @@ impl Token {
   }
 }
 
-
 init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords: *mut Map!<str, TType>) {
   keywords.insert("const", TType::Const);
   keywords.insert("mut", TType::Mut);
@@ -388,7 +387,8 @@ impl Lexer {
     while state.pos < state.input.length {
       token_builder.clear();
       mut c: u8 = state.input[state.pos];
-
+      
+      /* Newline */
       if c == '\n' {
         state.pos++;
         state.line++;
@@ -396,12 +396,14 @@ impl Lexer {
         continue;
       }
 
+      /* Whitespace */
       if c == ' ' || c == '\t' {
         state.pos++;
         state.col++;
         continue;
       }
 
+      /* Line comments */
       if c == '/' && state.pos + 1 < state.input.length && state.input[state.pos + 1] == '/' {
         state.pos += 2;
         state.col += 2;
@@ -417,10 +419,11 @@ impl Lexer {
         continue;
       }
 
+      /* Block comments */
       if c == '/' && state.pos + 1 < state.input.length && state.input[state.pos + 1] == '*' {
         state.pos += 2;
         state.col += 2;
-        while state.pos + 1 < state.input.length && (state.input[state.pos] != '*' && state.input[state.pos + 1] != '/') {
+        while state.pos + 1 < state.input.length && state.input[state.pos] != '*' || state.input[state.pos + 1] != '/' {
           if state.input[state.pos] == '\n' {
             state.line++;
             state.col = 1;
@@ -436,6 +439,7 @@ impl Lexer {
         }
       }
 
+      /* token-yielding symbols below. */
       mut location : SourceLocation = .{
         line: state.line, 
         column: state.col, 

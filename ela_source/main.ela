@@ -1,3 +1,15 @@
+/*
+  * This serves as a complete test for the lexer.
+*/
+
+// chars
 'п' // TODO: we need to fix UTF8 chars. this gets lexed as a massive value, 0xFFFFF43F
 ' '
+
+// strings
 "Stringy Dingy Wingy Привет Друг!"
+"Привет, мой друг. как дела сегодня?"
+
+// identifiers
+identifier
+_привет1 _мой друг1
