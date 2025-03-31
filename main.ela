@@ -2,6 +2,7 @@ import fmt::*;
 import interned::*;
 import fs::*;
 import lexer::*;
+import error::*;
 
 main :: fn() {
   mut state := State::from_file(String::from("ela_source/main.ela"));
@@ -11,7 +12,10 @@ main :: fn() {
   }
   println(("pos:", state.pos, "len:", state.input.length));
 
+
+  mut i := 0;
   for token in state.lookahead_buffer {
     println(token.to_string());
+    i++;
   }
 }

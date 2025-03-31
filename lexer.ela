@@ -2,6 +2,7 @@ import map::*;
 import fmt::*;
 import fs::*;
 import interned::*;
+import error::*;
 alias InternedString :: Interned!<String>;
 
 TType :: enum {
@@ -496,9 +497,7 @@ impl Lexer {
             codepoint = 0;
             for i in 0..num_digits {
               if (state.pos >= state.input.length || !isxdigit(state.input[state.pos])) {
-                // ! reimplement throw_error.
-                // ! throw_error("invalid hexadecimal escape sequence", {location});
-                panic("failurezorz");
+                throw_error("invalid hexadecimal escape sequence", location);
               }
               buffer: u8[2] = .[
                 state.input[state.pos],
@@ -527,9 +526,7 @@ impl Lexer {
               ++i;
             }
           } else {
-            // ! reimplement throw_error
-            // throw_error(std::format("invalid escape sequence {}", c), {location});
-            panic("failed to get hex escape char");
+            throw_error(format("invalid escape sequence %", (c,), FormatOptions::default()), location);
           }
         } else if (c & 0x80) == 0 {
           codepoint = c;
@@ -547,15 +544,12 @@ impl Lexer {
             num_bytes = 4;
           }
           else {
-            // ! reimplement throw_error;
-            panic("invalid utf8 char");
+            throw_error("invalid utf8 char", location);
           }
 
           for i in 0..num_bytes {
             if (state.pos >= state.input.length || (i > 0 && (state.input[state.pos] & 0xC0) != 0x80)) {
-              // ! reimplement throw_error;
-              panic("invalid UTF-8 continuation byte");
-              // throw_error("invalid UTF-8 continuation byte", {location});
+              throw_error("invalid UTF-8 continuation byte", location);
             }
             codepoint = (codepoint << 6) | (state.input[state.pos] & 0x3F);
             state.pos++;
@@ -565,9 +559,7 @@ impl Lexer {
 
         c = state.input[state.pos];
         if (c != '\'') {
-          // ! reimplement throw_error;
-          panic("invalid char literal: too many characters {}");
-          // throw_error(std::format("invalid char literal: too many characters {}", codepoint), {location});
+          throw_error(format("invalid char literal: too many characters %", (codepoint,), FormatOptions::default()), location);
         }
         state.pos++; // move past '
         state.col++;
@@ -587,8 +579,7 @@ impl Lexer {
           if (c == '\"') {
             break;
           } if (c == '\n') {
-            panic("You can't directly embed a '\\n' in string by just letting it span multiple lines");
-            // throw_error("You can't directly embed a '\\n' in string by just letting it span multiple lines", {location});
+            throw_error("You can't directly embed a '\\n' in string by just letting it span multiple lines", location);
           } else if (c == '\\') {
             if (state.pos + 1 < state.input.length) {
               token_builder.append_byte(c);
@@ -598,9 +589,7 @@ impl Lexer {
               state.pos++;
               state.col++;
             } else {
-              // I don't think this error is possible. perhaps it is.
-              panic("incomplete escape sequence at end of input");
-              // throw_error("incomplete escape sequence at end of input", {location});
+              throw_error("incomplete escape sequence at end of input", location);
             }
           } else {
             token_builder.append_byte(c);
@@ -659,7 +648,6 @@ impl Lexer {
           state.lookahead_buffer.push(Token::new(location, value, self.keywords.get(value.as_str()).unwrap()));
           return;
         } else if self.reserved.contains(value.as_str(), fn (a: str, b: str) -> bool {
-          if a == b then println(("got reserved word", a, b));
           return a == b;
         }) {
           // we prepend a $ on C's reserved words so we don't have any invisible overlap between the source
@@ -683,8 +671,6 @@ impl Lexer {
           current_match.push(state.input[state.pos]);
           option := self.operators.get(current_match.as_str());
 
-
-          printlnf("searching for current match %, is_some(): %", (current_match, option.is_some()));
           if (option.is_some()) {
             longest_match = current_match;
           } else if !longest_match.is_empty() {
@@ -701,10 +687,7 @@ impl Lexer {
           state.lookahead_buffer.push(Token::new(location, longest_match, self.operators.get(longest_match.as_str()).unwrap()));
           return;
         } else {
-          // ! todo: reimplement throw_error
-          error := format("unable to lex operator :: longest: %, current: %", (longest_match, current_match), FormatOptions::default());
-          panic(error.as_str());
-          // throw_error("unable to lex operator :: '" + current_match + '\'', {location});
+          throw_error(format("unable to lex operator :: \'%\'", (current_match,), FormatOptions::default()), location);
         }
       }
 
@@ -736,9 +719,7 @@ impl Lexer {
           }
           if (c == '.') {
             if (is_float) {
-              panic("got too many '.' periods in a float literal.");
-              // ! reimplement throw_error
-              // throw_error("got too many '.' periods in a float literal.", {location});
+              throw_error("got too many '.' periods in a float literal.", location);
             }
             is_float = true;
           }
