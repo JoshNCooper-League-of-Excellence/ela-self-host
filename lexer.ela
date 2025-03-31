@@ -393,6 +393,98 @@ impl Lexer {
           state.col += 2;
         }
       }
+
+      mut location : SourceLocation = .{
+        line: state.line, 
+        column: state.col, 
+        file: state.file_idx
+      };
+
+      if c == '\'' {
+        start := state.pos;
+        state.pos++;
+        state.col++;
+        c = state.input[state.pos];
+        mut codepoint: u32 = -1;
+
+        // Escape characters.
+        if c == '\\' {
+          state.pos++;
+          state.col++;
+          c = state.input[state.pos];
+          state.pos++;
+          state.col++;
+          if c == 'n' {
+            codepoint = '\n';
+          } else if c == 'v' {
+            codepoint = '\v';
+          } else if c == 'b' {
+            codepoint = '\b';
+          } else if c == 't' {
+            codepoint = '\t';
+          } else if c == 'f' {
+            codepoint = '\f';
+          } else if c == 'r' {
+            codepoint = '\r';
+          } else if c == '\'' {
+            codepoint = '\'';
+          } else if c == '\\' {
+            codepoint = '\\';
+          } else if c == '\"' {
+            codepoint = '\"';
+          } else if c == '0' {
+            codepoint = '\0';
+          } else if c == 'x' || c == 'u' || c == 'U' {
+            mut num_digits: u64;
+            if c == 'x' {
+              num_digits = 2;
+            } else if c == 'u' {
+              num_digits = 4;
+            } else {
+              num_digits = 8;
+            }
+            state.pos++;
+            state.col++;
+            codepoint = 0;
+            for i in 0..num_digits {
+              if (state.pos >= state.input.length || !isxdigit(state.input[state.pos])) {
+                // ! reimplement throw_error.
+                // ! throw_error("invalid hexadecimal escape sequence", {location});
+                panic("failurezorz");
+              }
+              buffer: u8[2] = .[
+                state.input[state.pos],
+                '\0',
+              ];
+              mut hex_value: u8 = state.input[state.pos];
+              if hex_value >= '0' && hex_value <= '9' {
+                hex_value -= '0';
+              } else if hex_value >= 'a' && hex_value <= 'f' {
+                hex_value -= 'a' - 10;
+              } else if hex_value >= 'A' && hex_value <= 'F' {
+                hex_value -= 'A' - 10;
+              }
+              codepoint = (codepoint << 4) | hex_value;
+              state.pos++;
+              state.col++;
+            }
+          } else if c >= '0' && c <= '7' { // Octal escape sequence
+            codepoint = 0;
+            mut i := 0;
+            while i < 3 && c > '0' && c < '7' {
+              codepoint = (codepoint << 3) | (c - '0');
+              state.pos++;
+              state.col++;
+              c = state.input[state.pos];
+              ++i;
+            }
+          } else {
+            // ! reimplement throw_error
+            // throw_error(std::format("invalid escape sequence {}", c), {location});
+            panic("failed to get hex escape char");
+          }
+        }
+      }
     }
 
     return Token::Eof();
