@@ -1,4 +1,4 @@
-import fmt;
+/* import fmt;
 
 main :: fn() {
   hellos := str[]::init(.[
@@ -22,3 +22,4 @@ main :: fn() {
     fmt::println(hello);
   }
 }
+ */

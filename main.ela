@@ -5,4 +5,9 @@ import lexer::*;
 
 main :: fn() {
   mut state := State::from_file(String::from("ela_source/main.ela"));
+  mut lexer := Lexer::new();
+  while state.pos < state.input.length {
+    lexer.get_token(&mut state);
+  }
+  println(("pos:", state.pos, "len:", state.input.length));
 }
