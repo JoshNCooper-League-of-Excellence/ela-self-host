@@ -1,6 +1,10 @@
-import fmt;
-
+import fmt::*;
+import interned::*;
+import fs::*;
+#include "lexer.ela";
 
 main :: fn() {
-
+  parent := parent_path(canonical_path("./").unwrap()).unwrap();
+  printlnf("parent: %", (parent,));
+  printlnf("current: %", (Directory::current(),));
 }

@@ -1,5 +1,8 @@
 import map::*;
 import fmt::*;
+import fs::*;
+
+alias InternedString :: Interned!<String>;
 
 TType :: enum {
   Eof = -1,
@@ -130,244 +133,188 @@ SourceLocation :: struct {
 }
 
 impl SourceLocation {
-  #static files :: fn() -> *mut Map!<u64, String> {
-    #static mut files: Map!<u64, String>;
+  #static files :: fn() -> *mut List!<String> {
+    #static mut files: List!<String>;
     return &mut files;
   }
 
   to_string :: fn(self) -> String {
-    filename := SourceLocation::files().get(self.file).unwrap();
+    filename := SourceLocation::files()[self.file];
     return format("%:%:%", (filename, self.line, self.column), FormatOptions::default());
   }
 }
 
-struct Token {
-  inline bool is_relational() const {
-    switch (type) {
-      case TType::LT:
-      case TType::GT:
-      case TType::EQ:
-      case TType::NEQ:
-      case TType::LE:
-      case TType::GE:
-      case TType::LogicalOr:
-      case TType::LogicalAnd:
-        return true;
-      default:
-        return false;
+Token :: struct {
+  value: InternedString,
+  type: TType,
+  location: SourceLocation,
+}
+
+impl Token {
+  is_relational :: fn(self) -> bool{
+    return switch self.type {
+      TType::LT => true,
+      TType::GT => true,
+      TType::EQ => true,
+      TType::NEQ => true,
+      TType::LE => true,
+      TType::GE => true,
+      TType::LogicalOr => true,
+      TType::LogicalAnd => true,
+      else => false,
     }
   }
-  inline bool is_comp_assign() const {
-    return type == TType::CompAdd || type == TType::CompSub || type == TType::CompMul || type == TType::CompDiv ||
-           type == TType::CompMod || type == TType::CompAnd || type == TType::CompOr || type == TType::CompXor ||
-           type == TType::CompSHL || type == TType::CompSHR;
+
+  is_comp_assign :: fn(self) -> bool  {
+    return self.type == TType::CompAdd || self.type == TType::CompSub || self.type == TType::CompMul || self.type == TType::CompDiv ||
+           self.type == TType::CompMod || self.type == TType::CompAnd || self.type == TType::CompOr || self.type == TType::CompXor ||
+           self.type == TType::CompSHL || self.type == TType::CompSHR;
   }
 
-  Token() {}
-
-  Token(SourceLocation location, InternedString value, TType type, TFamily family)
-      : value(std::move(value)), type(type), family(family), location(location) {}
-  InternedString value;
-  TType type;
-  TFamily family;
-  SourceLocation location;
-  static Token &Eof() {
-    static Token eof = Token(SourceLocation(0, 0, 0), {""}, TType::Eof, TFamily::Operator);
+  #static Eof :: fn() -> Token {
+    #static eof: Token = .{
+      type: TType::Eof,
+    };
     return eof;
   }
 
-  bool is_eof() const { return type == TType::Eof; }
+  is_type :: fn(self, type: TType) -> bool {
+    return self.type == type;
+  }
+
+  is_eof :: fn(self) -> bool {
+    return self.type == TType::Eof;
+  }
 };
 
-static std::unordered_map<std::string, TType> keywords{
-    {"const", TType::Const},
-    {"mut", TType::Mut},
+init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords: *mut Map!<str, TType>) {
+  keywords.insert("const", TType::Const);
+  keywords.insert("mut", TType::Mut);
+  keywords.insert("module", TType::Module);
+  keywords.insert("import", TType::Import);
+  keywords.insert("alias", TType::Alias);
+  keywords.insert("in", TType::In);
+  keywords.insert("where", TType::Where);
+  keywords.insert("sizeof", TType::Size_Of);
+  keywords.insert("typeof", TType::Type_Of);
+  keywords.insert("fn", TType::Fn);
+  keywords.insert("switch", TType::Switch);
+  keywords.insert("then", TType::Then);
+  keywords.insert("return", TType::Return);
+  keywords.insert("break", TType::Break);
+  keywords.insert("continue", TType::Continue);
+  keywords.insert("for", TType::For);
+  keywords.insert("while", TType::While);
+  keywords.insert("if", TType::If);
+  keywords.insert("else", TType::Else);
+  keywords.insert("struct", TType::Struct);
+  keywords.insert("union", TType::Union);
+  keywords.insert("enum", TType::Enum);
+  keywords.insert("true", TType::True);
+  keywords.insert("false", TType::False);
+  keywords.insert("null", TType::Null);
+  keywords.insert("as", TType::As);
+  keywords.insert("impl", TType::Impl);
+  keywords.insert("defer", TType::Defer);
+  keywords.insert("interface", TType::Interface);
 
-    {"module", TType::Module},
+  operators.insert("=>", TType::ExpressionBody);
+  operators.insert(":", TType::Colon);
+  operators.insert("@", TType::Attribute);
+  operators.insert(":=", TType::ColonEquals);
+  operators.insert("...", TType::Varargs);
+  operators.insert("#", TType::Directive);
+  operators.insert(".", TType::Dot);
+  operators.insert("!", TType::LogicalNot);
+  operators.insert("~", TType::Not);
+  operators.insert("::", TType::DoubleColon);
+  operators.insert("->", TType::Arrow);
+  operators.insert("..", TType::Range);
+  operators.insert("+", TType::Add);
+  operators.insert("-", TType::Sub);
+  operators.insert("*", TType::Mul);
+  operators.insert("/", TType::Div);
+  operators.insert("%", TType::Modulo);
+  operators.insert("=", TType::Assign);
+  operators.insert(",", TType::Comma);
+  operators.insert(";", TType::Semi);
+  operators.insert("(", TType::LParen);
+  operators.insert(")", TType::RParen);
+  operators.insert("{", TType::LCurly);
+  operators.insert("}", TType::RCurly);
+  operators.insert("|", TType::Or);
+  operators.insert("&", TType::And);
+  operators.insert("||", TType::LogicalOr);
+  operators.insert("&&", TType::LogicalAnd);
+  operators.insert("<<", TType::SHL);
+  operators.insert("^", TType::Xor);
+  operators.insert("<", TType::LT);
+  operators.insert(">", TType::GT);
+  operators.insert("==", TType::EQ);
+  operators.insert("!=", TType::NEQ);
+  operators.insert("<=", TType::LE);
+  operators.insert(">=", TType::GE);
+  operators.insert("[", TType::LBrace);
+  operators.insert("]", TType::RBrace);
+  operators.insert("++", TType::Increment);
+  operators.insert("--", TType::Decrement);
+  operators.insert("+=", TType::CompAdd);
+  operators.insert("-=", TType::CompSub);
+  operators.insert("*=", TType::CompMul);
+  operators.insert("/=", TType::CompDiv);
+  operators.insert("%=", TType::CompMod);
+  operators.insert("&=", TType::CompAnd);
+  operators.insert("|=", TType::CompOr);
+  operators.insert("^=", TType::CompXor);
+  operators.insert("<<=", TType::CompSHL);
+  operators.insert(">>=", TType::CompSHR);
+  operators.insert("!<", TType::GenericBrace);
+}
 
-    {"import", TType::Import},
-    {"импорт", TType::Import},
+State :: struct {
+  input: String,
+  path: String,
+  lookahead_buffer: List!<Token>,
+  pos: u64,
+  col: u64,
+  line: u64,
+  file_idx: u64,
+}
 
-    {"alias", TType::Alias},
-    {"псевдоним", TType::Alias},
+impl State {
+  new :: fn(path: String, input: String, file_idx: u64) -> #self {
+    return .{
+      path: path,
+      input: input,
+      file_idx: file_idx,
+      pos: 0,
+      col: 1,
+      line: 1,
+    };
+  }
 
-    // control flow
-    {"in", TType::In},
-    {"в", TType::In},
+  from_file :: fn(filename: String) -> #self {
+      canonical := canonical_path(filename).unwrap();
+      parent := parent_path(canonical).unwrap();
+      change_directory(parent).unwrap();
+      input := File::read_all(canonical).unwrap();
 
-    {"where", TType::Where},
-    {"где", TType::Where},
-
-    {"sizeof", TType::Size_Of},
-    {"кегль", TType::Size_Of},
-
-    {"typeof", TType::Type_Of},
-    {"тип", TType::Type_Of},
-
-    {"fn", TType::Fn},
-    {"фн", TType::Fn},
-
-    {"switch", TType::Switch},
-    {"матч", TType::Switch},
-
-    {"then", TType::Then},
-    {"тогда", TType::Then},
-
-    {"return", TType::Return},
-    {"возврат", TType::Return},
-
-    {"break", TType::Break},
-    {"прерв", TType::Break},
-
-    {"continue", TType::Continue},
-    {"продолжать", TType::Continue},
-
-    {"for", TType::For},
-    {"для", TType::For},
-
-    {"while", TType::While},
-    {"пока", TType::While},
-
-    {"if", TType::If},
-    {"если", TType::If},
-
-    {"else", TType::Else},
-    {"ещё", TType::Else},
-
-    // type declarations
-    {"struct", TType::Struct},
-    {"структ", TType::Struct},
-
-    {"union", TType::Union},
-    {"союз", TType::Union},
-
-    {"enum", TType::Enum},
-    {"перечень", TType::Enum},
-
-    // literals
-    {"true", TType::True},
-    {"правда", TType::True},
-
-    {"false", TType::False},
-    {"неверим", TType::False},
-
-    {"null", TType::Null},
-    {"нулевой", TType::Null},
-
-    // miscellaneous
-    {"as", TType::As},
-    {"как", TType::As},
-
-    {"impl", TType::Impl},
-    {"реализуйте", TType::Impl},
-
-    {"defer", TType::Defer},
-    {"отложить", TType::Defer},
-
-    {"interface", TType::Interface},
-    {"интерфейс", TType::Interface},
-};
-
-static std::unordered_map<std::string, TType> operators{{"=>", TType::ExpressionBody},
-                                                        {":", TType::Colon},
-                                                        {"@", TType::Attribute},
-                                                        {":=", TType::ColonEquals},
-                                                        {"...", TType::Varargs},
-                                                        {"#", TType::Directive},
-                                                        {".", TType::Dot},
-                                                        {"!", TType::LogicalNot},
-                                                        {"~", TType::Not},
-                                                        {"::", TType::DoubleColon},
-                                                        {"->", TType::Arrow},
-                                                        {"..", TType::Range},
-                                                        {"+", TType::Add},
-                                                        {"-", TType::Sub},
-                                                        {"*", TType::Mul},
-                                                        {"/", TType::Div},
-                                                        {"%", TType::Modulo},
-                                                        {"=", TType::Assign},
-                                                        {",", TType::Comma},
-                                                        {";", TType::Semi},
-                                                        {"(", TType::LParen},
-                                                        {")", TType::RParen},
-                                                        {"{", TType::LCurly},
-                                                        {"}", TType::RCurly},
-                                                        {"|", TType::Or},
-                                                        {"&", TType::And},
-                                                        {"||", TType::LogicalOr},
-                                                        {"&&", TType::LogicalAnd},
-                                                        {"<<", TType::SHL},
-                                                        {"^", TType::Xor},
-                                                        {"<", TType::LT},
-                                                        {">", TType::GT},
-                                                        {"==", TType::EQ},
-                                                        {"!=", TType::NEQ},
-                                                        {"<=", TType::LE},
-                                                        {">=", TType::GE},
-                                                        {"[", TType::LBrace},
-                                                        {"]", TType::RBrace},
-                                                        {"++", TType::Increment},
-                                                        {"--", TType::Decrement},
-                                                        {"+=", TType::CompAdd},
-                                                        {"-=", TType::CompSub},
-                                                        {"*=", TType::CompMul},
-                                                        {"/=", TType::CompDiv},
-                                                        {"%=", TType::CompMod},
-                                                        {"&=", TType::CompAnd},
-                                                        {"|=", TType::CompOr},
-                                                        {"^=", TType::CompXor},
-                                                        {"<<=", TType::CompSHL},
-                                                        {">>=", TType::CompSHR},
-                                                        {"!<", TType::GenericBrace}};
-
-struct Lexer {
-  struct State {
-    bool operator==(const Lexer::State &other) const { return other.input == input; }
-
-    State(const std::string &input, size_t file_idx, size_t input_len, const std::filesystem::path &path)
-        : input(input), file_idx(file_idx), path(path), input_len(input_len) {}
-
-    std::string input{};
-    std::filesystem::path path;
-    std::deque<Token> lookahead_buffer{};
-    size_t pos = 0;
-    size_t col = 1;
-    size_t line = 1;
-    size_t file_idx{};
-    size_t input_len{};
-
-    static State from_string(const std::string &input) { return State(input, 0, input.length(), ""); }
-
-    static State from_file(const std::string &filename) {
-      auto canonical = std::filesystem::canonical(filename);
-      auto path = canonical.string();
-      std::filesystem::current_path(canonical.parent_path());
-
-      if (!std::filesystem::exists(canonical)) {
-        printf("File %s does not exist. Quitting..", canonical.string().c_str());
-        exit(1);
-      }
-
-      std::ifstream file(canonical);
-      std::stringstream ss;
-      ss << file.rdbuf();
-      auto input = ss.str();
-
-      bool found = false;
-      size_t file_idx = 0;
-      for (const auto &file : SourceLocation::files()) {
-        if (file == path) {
-          found = 1;
-        } else {
-          ++file_idx;
-        }
+      mut found := false;
+      mut file_idx := 0;
+      for file in *SourceLocation::files() {
+        if file == canonical {
+          found = true;
+          break;
+        } 
+        file_idx++;
       }
       if (!found) {
-        SourceLocation::files().push_back(path);
+        SourceLocation::files().push(canonical);
       }
-      return State(input, file_idx, input.length(), canonical);
+      return State::new(canonical, input, file_idx);
     }
-  };
+}
 
-  void get_token(State &state);
-};
+get_next_token :: fn(state: State) {
+
+}
