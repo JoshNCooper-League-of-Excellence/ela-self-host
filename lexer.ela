@@ -185,6 +185,14 @@ impl Token {
   is_eof :: fn(self) -> bool {
     return self.type == TType::Eof;
   }
+
+  new :: fn(location: SourceLocation, value: String, type: TType) -> Token {
+    return .{
+      value: InternedString::new(value),
+      type: type,
+      location: location,
+    };
+  }
 };
 
 init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords: *mut Map!<str, TType>) {
@@ -339,7 +347,7 @@ impl Lexer {
 }
 
 impl Lexer {
-  get_token :: fn(*mut self, state: *mut State) -> Token {
+  get_token :: fn(*mut self, state: *mut State) {
     mut token_builder: StringBuilder;
     defer token_builder.deinit();
     
@@ -400,6 +408,7 @@ impl Lexer {
         file: state.file_idx
       };
 
+      // Characters.
       if c == '\'' {
         start := state.pos;
         state.pos++;
@@ -483,11 +492,53 @@ impl Lexer {
             // throw_error(std::format("invalid escape sequence {}", c), {location});
             panic("failed to get hex escape char");
           }
+        } else if (c & 0x80) == 0 {
+          codepoint = c;
+          state.pos++;
+          state.col++;
+        } else {
+          mut num_bytes := 0;
+          if ((c & 0xE0) == 0xC0) {
+            num_bytes = 2;
+          }
+          else if ((c & 0xF0) == 0xE0) {
+            num_bytes = 3;
+          }
+          else if ((c & 0xF8) == 0xF0) {
+            num_bytes = 4;
+          }
+          else {
+            // ! reimplement throw_error;
+            panic("invalid utf8 char");
+          }
+
+          for i in 0..num_bytes {
+            if (state.pos >= state.input.length || (i > 0 && (state.input[state.pos] & 0xC0) != 0x80)) {
+              // ! reimplement throw_error;
+              panic("invalid UTF-8 continuation byte");
+              // throw_error("invalid UTF-8 continuation byte", {location});
+            }
+            codepoint = (codepoint << 6) | (state.input[state.pos] & 0x3F);
+            state.pos++;
+            state.col++;
+          }
+
+          c = state.input[state.pos];
+          if (c != '\'') {
+            // ! reimplement throw_error;
+            panic("invalid char literal: too many characters {}");
+            // throw_error(std::format("invalid char literal: too many characters {}", codepoint), {location});
+          }
+          state.pos++; // move past '
+          state.col++;
+          mut buffer: u8[32];
+          snprintf(buffer, 32 * sizeof(u8), "0x%X"c, codepoint);
+          state.lookahead_buffer.push(Token::new(location, String::from_ptr(buffer), TType::Char));
         }
       }
     }
 
-    return Token::Eof();
+    state.lookahead_buffer.push(Token::Eof());
   }
 }
 
