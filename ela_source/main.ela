@@ -68,3 +68,81 @@ struct
 typedef
 unsigned
 volatile
+
+
+// operators and punctuation
+=>
+:
+@
+:=
+...
+#
+.
+!
+~
+::
+->
+..
++
+-
+*
+/
+%
+=
+,
+;
+(
+)
+{
+}
+|
+&
+||
+&&
+<<
+^
+<
+>
+==
+!=
+<=
+>=
+[
+]
+++
+--
++=
+-=
+*=
+/=
+%=
+&=
+|=
+^=
+<<=
+>>=
+!<
+
+/* 
+  !! Note !!
+  
+  >>= gets parsed as >, >=
+  and >> gets parsed a > >
+
+  this is due to using >> as delimiters for nested generics like List!<Map!<s32>>;
+
+  this code belongs in our binary expression parsing.
+  if (peek().type == TType::GT && lookahead_buf()[1].type == TType::GT) {
+    op.type = TType::SHR;
+    op.value = ">>";
+    eat();
+    eat();
+  } else if (peek().type == TType::GT && lookahead_buf()[1].type == TType::GE) {
+    op.type = TType::CompSHR;
+    op.value = ">>=";
+    eat();
+    eat();
+  } 
+
+
+*/

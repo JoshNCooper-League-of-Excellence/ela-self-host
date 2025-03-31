@@ -437,6 +437,7 @@ impl Lexer {
           state.pos += 2;
           state.col += 2;
         }
+        continue;
       }
 
       /* token-yielding symbols below. */
@@ -670,6 +671,42 @@ impl Lexer {
         state.lookahead_buffer.push(Token::new(location, value, TType::Identifier));
         return;
       } 
+
+      // Operators and Punctuation.
+      if ispunct(c) {
+        mut longest_match: String = .{};
+        mut current_match: String = .{};
+        while state.pos < state.input.length && ispunct(c) {
+          if c == '\"'
+            then break;
+
+          current_match.push(state.input[state.pos]);
+          option := self.operators.get(current_match.as_str());
+
+
+          printlnf("searching for current match %, is_some(): %", (current_match, option.is_some()));
+          if (option.is_some()) {
+            longest_match = current_match;
+          } else if !longest_match.is_empty() {
+            state.lookahead_buffer.push(Token::new(location, longest_match, self.operators.get(longest_match.as_str()).unwrap()));
+            return;
+          }
+          
+          state.pos++;
+          state.col++;
+          c = state.input[state.pos];
+        }
+
+        if !longest_match.is_empty() {
+          state.lookahead_buffer.push(Token::new(location, longest_match, self.operators.get(longest_match.as_str()).unwrap()));
+          return;
+        } else {
+          // ! todo: reimplement throw_error
+          error := format("unable to lex operator :: longest: %, current: %", (longest_match, current_match), FormatOptions::default());
+          panic(error.as_str());
+          // throw_error("unable to lex operator :: '" + current_match + '\'', {location});
+        }
+      }
     }
 
     state.lookahead_buffer.push(Token::Eof());
