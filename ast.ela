@@ -1,0 +1,16 @@
+import lexer::*;
+import arena::{
+  Arena,
+  ArenaFlags
+};
+
+alias TypeID :: u32;
+
+Node :: struct {
+  location: SourceLocation,
+}
+
+Expr :: struct {
+  base: Node,
+  resolved_type: TypeID,
+}

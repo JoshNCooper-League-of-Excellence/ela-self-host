@@ -1,0 +1,145 @@
+import fmt::*;
+import interned::*;
+import fs::*;
+import lexer::*;
+import error::*;
+
+#test test_lexing_sample_file :: fn() {
+  mut state := State::from_file(String::from("ela_source/lexer_test.ela"));
+  mut lexer := Lexer::new();
+  lexer.push_state(state);
+
+  lexer.expect(TType::Char);
+  lexer.expect(TType::Char);
+  lexer.expect(TType::String);
+  lexer.expect(TType::String);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+
+  lexer.expect(TType::Const);
+  lexer.expect(TType::Mut);
+  lexer.expect(TType::Module);
+  lexer.expect(TType::Import);
+  lexer.expect(TType::Alias);
+  lexer.expect(TType::In);
+  lexer.expect(TType::Where);
+  lexer.expect(TType::Size_Of);
+  lexer.expect(TType::Type_Of);
+  lexer.expect(TType::Fn);
+  lexer.expect(TType::Switch);
+  lexer.expect(TType::Then);
+  lexer.expect(TType::Return);
+  lexer.expect(TType::Break);
+  lexer.expect(TType::Continue);
+  lexer.expect(TType::For);
+  lexer.expect(TType::While);
+  lexer.expect(TType::If);
+  lexer.expect(TType::Else);
+  lexer.expect(TType::Struct);
+  lexer.expect(TType::Union);
+  lexer.expect(TType::Enum);
+  lexer.expect(TType::True);
+  lexer.expect(TType::False);
+  lexer.expect(TType::Null);
+  lexer.expect(TType::As);
+  lexer.expect(TType::Impl);
+  lexer.expect(TType::Defer);
+
+  lexer.expect(TType::Interface);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+  lexer.expect(TType::Identifier);
+
+  lexer.expect(TType::ExpressionBody);
+  lexer.expect(TType::Colon);
+  lexer.expect(TType::Attribute);
+  lexer.expect(TType::ColonEquals);
+  lexer.expect(TType::Varargs);
+  lexer.expect(TType::Directive);
+  lexer.expect(TType::Dot);
+  lexer.expect(TType::LogicalNot);
+  lexer.expect(TType::Not);
+  lexer.expect(TType::DoubleColon);
+  lexer.expect(TType::Arrow);
+  lexer.expect(TType::Range);
+  lexer.expect(TType::Add);
+  lexer.expect(TType::Sub);
+  lexer.expect(TType::Mul);
+  lexer.expect(TType::Div);
+  lexer.expect(TType::Modulo);
+  lexer.expect(TType::Assign);
+  lexer.expect(TType::Comma);
+  lexer.expect(TType::Semi);
+  lexer.expect(TType::LParen);
+  lexer.expect(TType::RParen);
+  lexer.expect(TType::LCurly);
+  lexer.expect(TType::RCurly);
+  lexer.expect(TType::Or);
+  lexer.expect(TType::And);
+  lexer.expect(TType::LogicalOr);
+  lexer.expect(TType::LogicalAnd);
+  lexer.expect(TType::SHL);
+  lexer.expect(TType::Xor);
+  lexer.expect(TType::LT);
+  lexer.expect(TType::GT);
+  lexer.expect(TType::EQ);
+  lexer.expect(TType::NEQ);
+  lexer.expect(TType::LE);
+  lexer.expect(TType::GE);
+  lexer.expect(TType::LBrace);
+  lexer.expect(TType::RBrace);
+  lexer.expect(TType::Increment);
+  lexer.expect(TType::Decrement);
+  lexer.expect(TType::CompAdd);
+  lexer.expect(TType::CompSub);
+  lexer.expect(TType::CompMul);
+  lexer.expect(TType::CompDiv);
+  lexer.expect(TType::CompMod);
+  lexer.expect(TType::CompAnd);
+  lexer.expect(TType::CompOr);
+  lexer.expect(TType::CompXor);
+  lexer.expect(TType::CompSHL);
+
+  // These will later get turned into >>= aka CompSHR
+  lexer.expect(TType::GT);
+  lexer.expect(TType::GE);
+
+  lexer.expect(TType::GenericBrace);
+
+  // normal int literals.
+  lexer.expect(TType::Integer);
+  lexer.expect(TType::Integer);
+  lexer.expect(TType::Integer);
+  lexer.expect(TType::Integer);
+
+  // float literals.
+  lexer.expect(TType::Float);
+  lexer.expect(TType::Float);
+  lexer.expect(TType::Float);
+  lexer.expect(TType::Float);
+
+  // Hex literals.
+  lexer.expect(TType::Integer);
+  lexer.expect(TType::Integer);
+  lexer.expect(TType::Integer);
+  lexer.expect(TType::Integer);
+
+  // Binary literals.
+  lexer.expect(TType::Integer);
+  lexer.expect(TType::Integer);
+  lexer.expect(TType::Integer);
+}

@@ -1,0 +1,163 @@
+/*
+  * This serves as a complete test for the lexer.
+*/
+
+// chars
+'п' // TODO: we need to fix UTF8 chars. this gets lexed as a massive value, 0xFFFFF43F
+' '
+
+// strings
+"Stringy Dingy Wingy Привет Друг!"
+"Привет, мой друг. как дела сегодня?"
+
+// identifiers
+identifier
+_привет1 _мой друг1
+
+// keywords
+const
+mut
+module
+import
+alias
+in
+where
+sizeof
+typeof
+fn
+switch
+then
+return
+break
+continue
+for
+while
+if
+else
+struct
+union
+enum
+true
+false
+null
+as
+impl
+defer
+interface
+
+// reserved words
+auto
+case
+default
+do
+double
+extern
+float
+goto
+int
+long
+short
+signed
+typedef
+unsigned
+volatile
+
+
+// operators and punctuation
+=>
+:
+@
+:=
+...
+#
+.
+!
+~
+::
+->
+..
++
+-
+*
+/
+%
+=
+,
+;
+(
+)
+{
+}
+|
+&
+||
+&&
+<<
+^
+<
+>
+==
+!=
+<=
+>=
+[
+]
+++
+--
++=
+-=
+*=
+/=
+%=
+&=
+|=
+^=
+<<=
+>>=
+!<
+
+/* 
+  !! Note !!
+  
+  >>= gets parsed as >, >=
+  and >> gets parsed a > >
+
+  this is due to using >> as delimiters for nested generics like List!<Map!<s32>>;
+
+  this code belongs in our binary expression parsing.
+  if (peek().type == TType::GT && lookahead_buf()[1].type == TType::GT) {
+    op.type = TType::SHR;
+    op.value = ">>";
+    eat();
+    eat();
+  } else if (peek().type == TType::GT && lookahead_buf()[1].type == TType::GE) {
+    op.type = TType::CompSHR;
+    op.value = ">>=";
+    eat();
+    eat();
+  } 
+
+
+*/
+
+
+// Numbers, literals.
+
+0
+1
+1000000
+12301923012741
+
+0.0
+1.0
+100.0
+0.00001
+
+0x0
+0xFFFFFFFF
+0xC0FFEE
+0xB00B
+
+0b0
+0b01001001
+0b01010101010101001010101
