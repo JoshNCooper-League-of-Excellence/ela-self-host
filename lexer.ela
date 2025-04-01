@@ -761,9 +761,11 @@ impl Lexer {
             state.col++;
             c = state.input[state.pos];
           }
-          if (c == '.' && state.pos + 1 < state.input.length && state.input[state.pos + 1] == '.') {
+
+          if (c == '.' && state.pos + 1 < state.input.length && (state.input[state.pos + 1] == '.' || !isdigit(state.input[state.pos+1]))) {
             break;
           }
+          
           if (c == '.') {
             if (is_float) {
               throw_error("got too many '.' periods in a float literal.", location);

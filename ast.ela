@@ -1,10 +1,5 @@
 import lexer::*;
-import arena::{
-  Arena,
-  ArenaFlags
-};
-
-alias TypeID :: u32;
+import type::*;
 
 ExprTag :: enum {
   // identifiers, numeric / string literals, etc.
@@ -45,7 +40,7 @@ ExprTag :: enum {
 }
 
 Expr :: struct {
-  type: TypeID,
+  type: *mut TypeDescriptor,
   location: SourceLocation,
   tag: ExprTag,
   data: *mut void,
@@ -126,7 +121,7 @@ ExprPostfix :: struct {
 }
 
 ExprTuple :: struct {
-  values: List!<Expr>,
+  values: List!<Expr>
 }
 
 ExprRange :: struct {
@@ -168,6 +163,12 @@ ExprLambda :: struct {
 ExprType :: struct {
   // TODO: we don't have our type system written either. We're going to do that now, but until then,
   // TODO: we can't really make a solid design here.
+}
+
+ExprWhere :: struct {
+  constrants: List!<(Expr, Expr)>
+  //                       ^^^^<- predicate/condition
+  //                 ^^^^<- target type
 }
 
 /* 

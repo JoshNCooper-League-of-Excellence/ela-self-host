@@ -3,6 +3,8 @@ import interned::*;
 import fs::*;
 import lexer::*;
 import error::*;
+import ast::*;
+import type::*;
 
 #test test_lexing_sample_file :: fn() {
   mut state := State::from_file(String::from("ela_source/lexer_test.ela"));
