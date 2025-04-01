@@ -4,6 +4,7 @@ import fs::*;
 import lexer::*;
 import error::*;
 import ast::*;
+import type::*;
 
 
 main :: fn() {
