@@ -6,15 +6,46 @@ import arena::{
 
 alias TypeID :: u32;
 
-
 ExprTag :: enum {
-  Literal, // identifiers, numeric / string literals, etc.
-  Unary,   // negate, not, etc
-  Binary,  // + - % / ^ etc.
-  Postfix, // dot expression, subscript/index, call.
+  // identifiers, numeric / string literals, etc.
+  Literal, 
+  // negate, not, etc
+  Unary,   
+  // + - % / ^ etc.
+  Binary,  
+  // dot expression, subscript/index, call.
+  // x.value, x.get(0), x[10]; etc.
+  Postfix, 
+  // tuple literals don't fit into the 
+  // literal struct because they don't 
+  // have a simple textual representation
+  // (0, 1, 2)
+  Tuple,
+  // Range literals, have the same problem as tuples. 
+  // so they must be their own expression unfortunately.
+  // 0..10
+  Range,
+  // .{}, .{x: x, y: y}, 
+  StructInitializer,
+  // .[], .[0, 1, 23]
+  CollectionInitializer,
+  // x as s32
+  Cast,
+  // fn() -> bool => false;
+  Lambda,
+  // sizeof(s32) :: compile time type sizing.
+  SizeOf,
+  // typeof(s32) :: reflection
+  TypeOf,
+  /* 
+    getter :: fn!<T, Other>() where T: Sized, 
+           Other: List!<T> { ... }
+  */
+  Where,
 }
 
 Expr :: struct {
+  type: TypeID,
   location: SourceLocation,
   tag: ExprTag,
   data: *mut void,
@@ -94,22 +125,49 @@ ExprPostfix :: struct {
   }
 }
 
-parse_literal :: fn(value: str) -> ExprLiteral {
-  return .{
-    tag: LiteralTag::Integer,
-    value: InternedString::new(String::from(value)),
-  };
-
+ExprTuple :: struct {
+  values: List!<Expr>,
 }
 
-main :: fn() {
-  mut left := parse_literal("0");
-  mut right := parse_literal("1");
-  binary := ExprBinary.{
-    left: Expr::new(.{}, ExprTag::Literal, new(left)),
-    left: Expr::new(.{}, ExprTag::Literal, new(right)),
-    operator: TType::Add,
-  };
+ExprRange :: struct {
+  begin: Expr, 
+  end: Expr, 
+  inclusive: bool, // include the last value. 0..=100 would go 0->100, whereas 0..100 goes 0->99
+}
+
+ExprSizeOf :: struct {
+  type: Expr,
+}
+
+ExprTypeOf :: struct {
+  type: Expr,
+}
+
+ExprStructInitializer :: struct {
+  target: Option!<Expr>, // if we do Type.{}, 'Type' would be our target.
+  members: Map!<InternedString, Expr>,
+}
+
+ExprCollectionInitializer :: struct {
+  target: Option!<Expr>, // if we do Type.[], 'Type' would be our target.
+  members: List!<Expr>,
+}
+
+ExprCast :: struct {
+  // x + 2 as s32;
+  //          ^^^<- target.
+  // ^^^^^<- expression.
+  target: Expr, 
+  expression: Expr,
+}
+
+ExprLambda :: struct {
+  // TODO:  We don't have function declarations fleshed out yet. We'll wait on that.
+}
+
+ExprType :: struct {
+  // TODO: we don't have our type system written either. We're going to do that now, but until then,
+  // TODO: we can't really make a solid design here.
 }
 
 /* 
