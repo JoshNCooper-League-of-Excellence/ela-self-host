@@ -3,6 +3,7 @@ import interned::*;
 import fs::*;
 import lexer::*;
 import error::*;
+import ast::*;
 
 
 main :: fn() {
