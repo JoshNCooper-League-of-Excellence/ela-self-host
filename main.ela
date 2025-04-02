@@ -26,20 +26,11 @@ main :: fn() {
     lexer.eat();
   }
 
-  type := global_create_type(
-    TypeTag::Scalar,
-    InternedString::new(String::from("s32")),
-    ScalarTypeInfo.{
-      tag: ScalarTag::S32,
-      size: 4,
-      is_integral: true,
-    },
-    List!<TypeModifier>::init(.[
-      TypeModifier::ptr_const(),
-    ]),
-    null,
-  );
-  
+  mut interner := Interner::new();
+
   print("\033[0m");
-  println(*type);
+  for type in interner.types {
+    println((type.scalar_info, type.basename));
+  }
+
 }

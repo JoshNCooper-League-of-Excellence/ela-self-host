@@ -19,8 +19,8 @@ ScalarTag :: enum {
   U16,
   U32,
   U64,
-  Float,
-  Double,
+  F32,
+  F64,
   String,
   Char,
   Bool,
@@ -66,9 +66,6 @@ impl TypeModifier {
   }
 }
 
-// TODO: actually implement this back in the AST.
-StmtTypeDeclaration :: struct {};
-
 IsTypeInfo :: interface {}
 
 InterfaceTypeInfo :: struct {
@@ -109,6 +106,7 @@ impl IsTypeInfo for EnumTypeInfo {}
 impl IsTypeInfo for StructTypeInfo {}
 impl IsTypeInfo for TupleTypeInfo {}
 
+StmtTypeDeclaration :: struct {}
 TypeDescriptor :: struct {
   modifiers:     List!<TypeModifier>,
   generic_args:  List!<Type>,
@@ -152,43 +150,279 @@ impl Format for TypeDescriptor {
   }
 }
 
-mut global_type_table: List!<Type>;
+Interner :: struct {
+  types: List!<Type>,
+}
 
-global_create_type :: fn!<TypeInfo>(
-  tag: TypeTag,
-  basename: InternedString, 
-  type_info: TypeInfo, 
-  modifiers: TypeModifier[], 
-  base_type: Type) -> Type where TypeInfo: IsTypeInfo {
-
-  mut descriptor : TypeDescriptor = .{
-    tag: tag,
-    basename: basename,
-    modifiers: modifiers,
-    base_type: Some(base_type),
-  };
-
-  switch typeof(TypeInfo) {
-    typeof(InterfaceTypeInfo): {
-      memcpy(&mut descriptor.interface_info, &const type_info, sizeof(TypeInfo));
-    }
-    typeof(FunctionTypeInfo): {
-      memcpy(&mut descriptor.function_info, &const type_info, sizeof(TypeInfo));
-    }
-    typeof(ScalarTypeInfo): {
-      memcpy(&mut descriptor.scalar_info, &const type_info, sizeof(TypeInfo));
-    }
-    typeof(EnumTypeInfo): {
-      memcpy(&mut descriptor.enum_info, &const type_info, sizeof(TypeInfo));
-    }
-    typeof(StructTypeInfo): {
-      memcpy(&mut descriptor.struct_info, &const type_info, sizeof(TypeInfo));
-    }
-    typeof(TupleTypeInfo): {
-      memcpy(&mut descriptor.tuple_info, &const type_info, sizeof(TypeInfo));
-    }
+impl Interner {
+  new :: fn() -> #self {
+    mut self: #self;
+    self.bool_type();
+    self.void_type();
+    self.s8_type();
+    self.s16_type();
+    self.s32_type();
+    self.s64_type();
+    self.u8_type();
+    self.u16_type();
+    self.u32_type();
+    self.u64_type();
+    self.f32_type();
+    self.f64_type();
+    return self;
   }
-  type : Type = new(descriptor);
-  global_type_table.push(type);
-  return type;
+
+  create_type :: fn!<TypeInfo>(
+    *mut self,
+    tag: TypeTag,
+    basename: InternedString, 
+    type_info: TypeInfo, 
+    modifiers: TypeModifier[], 
+    base_type: Type) -> Type where TypeInfo: IsTypeInfo {
+    mut descriptor : TypeDescriptor = .{
+      tag: tag,
+      basename: basename,
+      modifiers: modifiers,
+      base_type: Some(base_type),
+    };
+    switch typeof(TypeInfo) {
+      typeof(InterfaceTypeInfo): {
+        memcpy(&mut descriptor.interface_info, &const type_info, sizeof(TypeInfo));
+      }
+      typeof(FunctionTypeInfo): {
+        memcpy(&mut descriptor.function_info, &const type_info, sizeof(TypeInfo));
+      }
+      typeof(ScalarTypeInfo): {
+        memcpy(&mut descriptor.scalar_info, &const type_info, sizeof(TypeInfo));
+      }
+      typeof(EnumTypeInfo): {
+        memcpy(&mut descriptor.enum_info, &const type_info, sizeof(TypeInfo));
+      }
+      typeof(StructTypeInfo): {
+        memcpy(&mut descriptor.struct_info, &const type_info, sizeof(TypeInfo));
+      }
+      typeof(TupleTypeInfo): {
+        memcpy(&mut descriptor.tuple_info, &const type_info, sizeof(TypeInfo));
+      }
+    }
+    type : Type = new(descriptor);
+    self.types.push(type);
+    return type;
+  }
+
+  bool_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("bool")),
+        ScalarTypeInfo.{
+          size: 1,
+          is_integral: false,
+          tag: ScalarTag::Bool,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  void_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("void")),
+        ScalarTypeInfo.{
+          size: 0,
+          is_integral: false,
+          tag: ScalarTag::Void,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  s8_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("s8")),
+        ScalarTypeInfo.{
+          size: 1,
+          is_integral: true,
+          tag: ScalarTag::S8,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  s16_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("s16")),
+        ScalarTypeInfo.{
+          size: 2,
+          is_integral: true,
+          tag: ScalarTag::S16,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  s32_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("s32")),
+        ScalarTypeInfo.{
+          size: 4,
+          is_integral: true,
+          tag: ScalarTag::S32,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  s64_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("s64")),
+        ScalarTypeInfo.{
+          size: 8,
+          is_integral: true,
+          tag: ScalarTag::S64,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  u8_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("u8")),
+        ScalarTypeInfo.{
+          size: 1,
+          is_integral: true,
+          tag: ScalarTag::U8,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  u16_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("u16")),
+        ScalarTypeInfo.{
+          size: 2,
+          is_integral: true,
+          tag: ScalarTag::U16,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  u32_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("u32")),
+        ScalarTypeInfo.{
+          size: 4,
+          is_integral: true,
+          tag: ScalarTag::U32,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  u64_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("u64")),
+        ScalarTypeInfo.{
+          size: 8,
+          is_integral: true,
+          tag: ScalarTag::U64,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  f32_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("f32")),
+        ScalarTypeInfo.{
+          size: 4,
+          is_integral: false,
+          tag: ScalarTag::F32,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
+
+  f64_type :: fn(*mut self) -> Type {
+    #static mut type: Type;
+    if !type {
+      type = self.create_type(
+        TypeTag::Scalar, 
+        InternedString::new(String::from("f64")),
+        ScalarTypeInfo.{
+          size: 8,
+          is_integral: false,
+          tag: ScalarTag::F64,
+        },
+        List!<TypeModifier>.{}, // no modifiers.
+        null // no base type.
+      );
+    }
+    return type;
+  }
 }
