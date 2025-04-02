@@ -1,8 +1,4 @@
-import fmt::*;
-import interned::*;
-import fs::*;
-import lexer::*;
-import error::*;
+import core::*;
 
 alias Type :: *mut TypeDescriptor;
 
@@ -36,7 +32,7 @@ TypeTag :: enum {
   Struct,
   Enum,
   Tuple,
-  Tagged_union,
+  TaggedUnion,
   Interface,
 }
 
@@ -48,8 +44,25 @@ TypeModifierTag :: enum {
 
 TypeModifier :: struct {
   tag: TypeModifierTag,
-  #anon :: union {
-    array_size: u64,
+  array_size: u64,
+}
+
+impl TypeModifier {
+  ptr_mut :: fn() -> #self {
+    return .{
+      tag: TypeModifierTag::PointerMut,
+    }
+  }
+  ptr_const :: fn() -> #self {
+    return .{
+      tag: TypeModifierTag::PointerConst,
+    }
+  }
+  array :: fn(size: u64) -> #self {
+    return .{
+      tag: TypeModifierTag::Array,
+      array_size: size,
+    }
   }
 }
 
@@ -101,19 +114,11 @@ TypeDescriptor :: struct {
   generic_args:  List!<Type>,
   interfaces:    List!<Type>,
   declaring_node: Option!<StmtTypeDeclaration>,
-
-  base_type: Type,
+  base_type: Option!<Type>,
   generic_base_type: Type,
-
   basename: InternedString,
-
-  #anon :: struct {
-    // TODO: Do we need these? I'm sure there's a better way to represent these.
-    emit_state_tuple_emitted: bool,
-    emit_state_forward_declared: bool
-  },
-
   tag: TypeTag,
+
   #anon :: union {
     interface_info: InterfaceTypeInfo,
     function_info:  FunctionTypeInfo,
@@ -121,6 +126,29 @@ TypeDescriptor :: struct {
     enum_info:      EnumTypeInfo,
     struct_info:    StructTypeInfo,
     tuple_info:     TupleTypeInfo,
+  }
+}
+
+impl Format for TypeDescriptor {
+  format :: fn(*const self, builder: *mut StringBuilder, options: FormatOptions) {
+    builder.append("Type {\n");
+    builder.appendf("  modifiers: %,\n", (self.modifiers,), options);
+    builder.appendf("  generic_args: %,\n", (self.generic_args,), options);
+    builder.appendf("  interfaces: %,\n", (self.interfaces,), options);
+    builder.appendf("  declaring node: %,\n", (self.declaring_node,), options);
+    builder.appendf("  base type: %,\n", (self.base_type,), options);
+    builder.appendf("  generic base: %,\n", (self.generic_base_type,), options);
+    builder.appendf("  basename: %,\n", (self.basename,), options);
+    builder.appendf("  tag: %,\n", (self.tag,), options);
+    switch self.tag {
+      TypeTag::Scalar:    {     builder.appendf("  info: %,\n", (self.scalar_info,), options); }
+      TypeTag::Function:  {   builder.appendf("  info: %,\n", (self.function_info,), options); }
+      TypeTag::Struct:    {     builder.appendf("  info: %,\n", (self.struct_info,), options); }
+      TypeTag::Enum:      {       builder.appendf("  info: %,\n", (self.enum_info,), options); }
+      TypeTag::Tuple:     {      builder.appendf("  info: %,\n", (self.tuple_info,), options); }
+      TypeTag::Interface: {  builder.appendf("  info: %,\n", (self.interface_info,), options); }
+    }
+    builder.append("}");
   }
 }
 
@@ -137,15 +165,9 @@ global_create_type :: fn!<TypeInfo>(
     tag: tag,
     basename: basename,
     modifiers: modifiers,
-    base_type: base_type,
+    base_type: Some(base_type),
   };
-/* 
-  TODO: gotta have cooper take a second look at the dependency emitter in cases
-  TODO(cont): when we have a circular import. as well as reflection in general.
-  TODO(cont): we may not be able to solve the circular import problem without out of order compilation.
-  TODO(cont): it may be a good idea to refine the current compiler, implement some of these insane features
-  TODO(cont): refine it again, and then take a much better stab at this self host attemp.
-  
+
   switch typeof(TypeInfo) {
     typeof(InterfaceTypeInfo): {
       memcpy(&mut descriptor.interface_info, &const type_info, sizeof(TypeInfo));
@@ -166,77 +188,7 @@ global_create_type :: fn!<TypeInfo>(
       memcpy(&mut descriptor.tuple_info, &const type_info, sizeof(TypeInfo));
     }
   }
-*/
-
   type : Type = new(descriptor);
   global_type_table.push(type);
-
   return type;
-}
-
-main :: fn() {
-  type := global_create_type(
-    TypeTag::Scalar,
-    InternedString::new(String::from("s32")),
-    ScalarTypeInfo.{
-      tag: ScalarTag::S32,
-      size: 4,
-      is_integral: true,
-    },
-    List!<TypeModifier>.{},
-    null,
-  );
-  // println(type);
-}
-
-#region UNFINISHED {
-  // get_tuple_type_name :: fn(types: Type[]) -> InternedString;
-  // type_is_numerical :: fn(const Type *t) -> bool;
-  // numerical_type_safe_to_upcast :: fn(const Type *from, const Type *to) -> bool;
-
-
-  // global_create_struct_type :: fn(const InternedString &, Scope *, std::vector<int> generic_args = {}) -> Type;
-  // global_create_interface_type :: fn(const InternedString &name, Scope *scope, std::vector<int> generic_args) -> Type;
-  // global_create_tagged_union_type :: fn(const InternedString &name, Scope *scope, const std::vector<int> &generic_args) -> Type;
-  // global_create_enum_type :: fn(const InternedString &, Scope *, bool = false, size_t element_type = s32_type()) -> Type;
-  // global_create_tuple_type :: fn(const std::vector<int> &types) -> Type;
-
-  // global_find_function_type_id :: fn(const FunctionTypeInfo &, const TypeExtensions &) -> Type;
-  // global_find_tuple_type_id :: fn(std::vector<int> &tuple_types, const TypeExtensions &type_extensions) -> Type;
-  // global_find_type_id :: fn(const int, const TypeExtensions &) -> Type;
-
-  // type_conversion_rule :: fn(const Type *from, const Type *to, const SourceRange & = {}) -> ConversionRule;
-
-  // // returns false for failure, else true and passed param signature as out.
-  // get_function_type_parameter_signature :: fn(Type *type, std::vector<int> &out) -> bool;
-
-  // emit_warnings_or_errors_for_operator_overloads :: fn(const TType type, SourceRange &range) -> void;
-
-  // // helpers to get scalar types for fast comparison
-  // bool_type :: fn() -> Type {}
-  // void_type :: fn() -> Type {}
-  // s8_type :: fn() -> Type {}
-  // s16_type :: fn() -> Type {}
-  // s32_type :: fn() -> Type {}
-  // s64_type :: fn() -> Type {}
-  // u8_type :: fn() -> Type {}
-  // u16_type :: fn() -> Type {}
-  // u32_type :: fn() -> Type {}
-  // u64_type :: fn() -> Type {}
-  // f64_type :: fn() -> Type {}
-  // f32_type :: fn() -> Type {}
-
-  // is_tuple_interface :: fn() -> Type {}
-  // is_array_interface :: fn() -> Type {}
-  // is_pointer_interface :: fn() -> Type {}
-  // is_mut_pointer_interface :: fn() -> Type {}
-  // is_const_pointer_interface :: fn() -> Type {}
-
-  // init_type_system :: fn();
-
-  // global_get_type :: fn(id: Type) -> *mut Type {
-  //   if id < 0 || id > type_table.length
-  //     then return null;
-  //   return type_table[id];
-  // }
 }

@@ -1,9 +1,4 @@
-import map::*;
-import fmt::*;
-import fs::*;
-import interned::*;
-import error::*;
-alias InternedString :: Interned!<String>;
+#include "../core.ela";
 
 TType :: enum {
   Eof = -1,

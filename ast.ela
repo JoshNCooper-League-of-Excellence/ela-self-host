@@ -42,6 +42,7 @@ ExprTag :: enum {
 Expr :: struct {
   type: *mut TypeDescriptor,
   location: SourceLocation,
+
   tag: ExprTag,
   data: *mut void,
 }
