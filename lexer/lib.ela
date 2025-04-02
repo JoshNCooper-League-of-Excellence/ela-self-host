@@ -100,7 +100,8 @@ TType :: enum {
   Module,
 
   Attribute,
-
+  SelfType,
+  
   Mut,
   Const
 }
@@ -254,6 +255,7 @@ init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords:
   keywords.insert("impl", TType::Impl);
   keywords.insert("defer", TType::Defer);
   keywords.insert("interface", TType::Interface);
+  keywords.insert("Self", TType::SelfType);
 
   operators.insert("=>", TType::ExpressionBody);
   operators.insert(":", TType::Colon);

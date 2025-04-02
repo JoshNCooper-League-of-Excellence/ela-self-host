@@ -1,26 +1,30 @@
 import lexer::*;
 import type::*;
+import scope::*;
 
-ExprTag :: enum {
+NodeTag :: enum {
   // identifiers, numeric / string literals, etc.
-  Literal, 
+  Literal,
   // negate, not, etc
-  Unary,   
+  Unary,
   // + - % / ^ etc.
-  Binary,  
+  Binary,
   // dot expression, subscript/index, call.
   // x.value, x.get(0), x[10]; etc.
-  Postfix, 
-  // tuple literals don't fit into the 
-  // literal struct because they don't 
+  Dot,
+  Index,
+  Call,
+  ScopeResolution,
+  // tuple literals don't fit into the
+  // literal struct because they don't
   // have a simple textual representation
   // (0, 1, 2)
   Tuple,
-  // Range literals, have the same problem as tuples. 
+  // Range literals, have the same problem as tuples.
   // so they must be their own expression unfortunately.
   // 0..10
   Range,
-  // .{}, .{x: x, y: y}, 
+  // .{}, .{x: x, y: y},
   StructInitializer,
   // .[], .[0, 1, 23]
   CollectionInitializer,
@@ -32,23 +36,35 @@ ExprTag :: enum {
   SizeOf,
   // typeof(s32) :: reflection
   TypeOf,
-  /* 
-    getter :: fn!<T, Other>() where T: Sized, 
+  /*
+    getter :: fn!<T, Other>() where T: Sized,
            Other: List!<T> { ... }
   */
   Where,
+
+  /*
+    'Self' type.
+  */
+  SelfType,
 }
 
-Expr :: struct {
-  type: *mut TypeDescriptor,
+SubNode :: interface {
+  get_tag :: fn() -> NodeTag;
+}
+
+Node :: struct {
+  tag: NodeTag,
+  data: *mut void,
+
   location: SourceLocation,
 
-  tag: ExprTag,
-  data: *mut void,
+  type:   Option!<Type>,
+  parent: Option!<*mut Node>,
+  scope:  Option!<Scope>,
 }
 
-impl Expr {
-  new :: fn(location: SourceLocation, tag: ExprTag, data: *mut void) -> Expr {
+impl Node {
+  new :: fn(location: SourceLocation, tag: NodeTag, data: *mut void) -> Node {
     return .{
       location: location,
       tag: tag,
@@ -57,126 +73,470 @@ impl Expr {
   }
 }
 
-LiteralTag :: enum {
-  Identifier,
-  Integer,
-  Float,
-  Bool,
-  CString,
-  String,
-  Char,
-  Null,
-}
+#region Expression {
 
-ExprLiteral :: struct {
-  tag:   LiteralTag,
-  value: InternedString,
-}
+  LiteralTag :: enum {
+    Identifier,
+    Integer,
+    Float,
+    Bool,
+    CString,
+    String,
+    Char,
+    Null,
+  }
 
-ExprUnary :: struct {
-  left: Expr,
-  operator: TType,
-}
+  ExprLiteral :: struct {
+    tag:   LiteralTag,
+    value: InternedString,
+  }
 
-ExprBinary :: struct {
-  left: Expr,
-  right: Expr,
-  operator: TType,
-}
+  ExprUnary :: struct {
+    left: *mut Node,
+    operator: TType,
+  }
 
-ExprDot :: struct {
-  left: Expr,
-  member: InternedString,
-}
+  ExprBinary :: struct {
+    left: *mut Node,
+    right: *mut Node,
+    operator: TType,
+  }
 
-ExprScopeResolution :: struct {
-  left: Expr,
-  member: InternedString,
-}
+  ExprDot :: struct {
+    left: *mut Node,
+    member: InternedString,
+  }
 
-ExprIndex :: struct {
-  left: Expr,
-  index: Expr,
-}
+  ExprScopeResolution :: struct {
+    left: *mut Node,
+    member: InternedString,
+  }
 
-ExprCall :: struct {
-  left: Expr,
-  arguments: List!<Expr>,
-}
+  ExprIndex :: struct {
+    left: *mut Node,
+    index: Node,
+  }
 
-PostfixTag :: enum {
-  Dot,
-  Index,
-  Call,
-  ScopeResolution,
-}
+  ExprCall :: struct {
+    left: *mut Node,
+    arguments: List!<Node>,
+  }
 
-ExprPostfix :: struct {
-  tag: PostfixTag,
-  #anon :: union {
-    dot: ExprDot,
-    index: ExprIndex,
-    call: ExprCall,
-    scope_resolution: ExprScopeResolution,
+  ExprTuple :: struct {
+    values: List!<*mut Node>
+  }
+
+  ExprRange :: struct {
+    begin: *mut Node,
+    end: *mut Node,
+    inclusive: bool, // include the last value. 0..=100 would go 0->100, whereas 0..100 goes 0->99
+  }
+
+  ExprSizeOf :: struct {
+    type: *mut Node,
+  }
+
+  ExprTypeOf :: struct {
+    type: *mut Node,
+  }
+
+  ExprStructInitializer :: struct {
+    target: Option!<*mut Node>, // if we do Type.{}, 'Type' would be our target.
+    members: Map!<InternedString, *mut Node>,
+  }
+
+  ExprCollectionInitializer :: struct {
+    target: Option!<*mut Node>, // if we do Type.[], 'Type' would be our target.
+    members: List!<*mut Node>,
+  }
+
+  ExprCast :: struct {
+    // x + 2 as s32;
+    //          ^^^<- target.
+    // ^^^^^<- expression.
+    target: *mut Node,
+    expression: *mut Node,
+  }
+
+  ExprLambda :: struct {
+    // TODO:  We don't have function declarations fleshed out yet. We'll wait on that.
+  }
+
+  ExprTypeTag :: enum {
+    Normal,
+    Function,
+  }
+
+  ExprType :: struct {
+    tag: ExprTypeTag,
+
+    /*
+      this is usually either just an Identifier, or it's a ScopeResolution.
+      { std::List!<T> }
+      { Vec2 }
+      { Vector!<T, T1> }
+      { List!<T>::T }
+    */
+    base: *mut Node,
+
+    /*
+      This is either
+        { Type!<T, T> }
+      etc angle bracket arguments.
+
+      or, it's
+        { fn(A, B) -> C }
+      where this is parameters/return types
+      for a function type. this depends on the tag.
+    */
+    type_arguments: List!<*mut Node>,
+  }
+
+  /*
+    Just a marker node for when we need to resolve when `Self` is used.
+  */
+  ExprSelfType :: struct {}
+
+  ExprWhere :: struct {
+    constrants: List!<(*mut Node, *mut Node)>
+    //                       ^^^^<- predicate/condition
+    //                 ^^^^<- target type
   }
 }
 
-ExprTuple :: struct {
-  values: List!<Expr>
-}
+/* 
+  the type of module created when importing a file.
+  `import std::some_module`
 
-ExprRange :: struct {
-  begin: Expr, 
-  end: Expr, 
-  inclusive: bool, // include the last value. 0..=100 would go 0->100, whereas 0..100 goes 0->99
-}
+  this is not done for 
+  `#include "some_file.ela"
+  that is just basically a copy-paste of the text, and
+  doesn't represent the same thing as importing.
 
-ExprSizeOf :: struct {
-  type: Expr,
-}
+  this is also the root level, basic building block for every program, such as a main file.
 
-ExprTypeOf :: struct {
-  type: Expr,
-}
-
-ExprStructInitializer :: struct {
-  target: Option!<Expr>, // if we do Type.{}, 'Type' would be our target.
-  members: Map!<InternedString, Expr>,
-}
-
-ExprCollectionInitializer :: struct {
-  target: Option!<Expr>, // if we do Type.[], 'Type' would be our target.
-  members: List!<Expr>,
-}
-
-ExprCast :: struct {
-  // x + 2 as s32;
-  //          ^^^<- target.
-  // ^^^^^<- expression.
-  target: Expr, 
-  expression: Expr,
-}
-
-ExprLambda :: struct {
-  // TODO:  We don't have function declarations fleshed out yet. We'll wait on that.
-}
-
-ExprType :: struct {
-  // TODO: we don't have our type system written either. We're going to do that now, but until then,
-  // TODO: we can't really make a solid design here.
-}
-
-ExprWhere :: struct {
-  constrants: List!<(Expr, Expr)>
-  //                       ^^^^<- predicate/condition
-  //                 ^^^^<- target type
+  (( this will probably need to be worked out, and perhaps split into a few nodes for all the stuff described above. ))
+*/
+StmtFile :: struct {
+  nodes: List!<*mut Node>,
 }
 
 /* 
-  Nodes in our old compiler that have references to statements and inherit from statement themselves:
+  this is a module that's declared underneath a file, essentially a submodule.
+  `module my_module {...}`
+*/
+StmtModule :: struct {
+  nodes: List!<*mut Node>,
+}
+
+
+StmtTypeTag :: enum { Struct, Union, Interface, Enum, EnumUnion, }
+
+/* 
+  this encompasses all type declarations.
+    - struct
+    - union
+    - enum
+    - enum(union) (tagged union, ADT)
+    - interface
+
+  TODO: decide whether we want to include all of these together, or seperate them into their own structs.
+  
+  all of these, excluding enums, can have generic parameters.
+  they can also have `where` clauses.
+  following a very similar syntax:
+
+  `A :: struct!<T>`
+
+  `B :: union!<T, T1> where T: Sized & IsFloat, 
+                      T1: IsFloat | IsInteger, 
+                      T: Blah`
+
+  `C :: interface!<T> where T: Sized`
+  
+*/
+StmtType :: struct {
+  // struct, union, interface, enum, enum(union)
+  type_tag: StmtTypeTag, 
+}
+
+/* 
+  an impl.
+
+  `impl MyType`
+    -- just provide some methods for a type. even scalars, etc.
+
+  `impl!<T> MyType!<T>`
+    -- provide some methods for a generic type, where each instantiation would get these methods.
+
+  `impl!<T> MyType!<T> where T: Is_Amazing_Type`
+    -- it can also have where clause constraints.
+
+  `impl SomeInterface for MyType`
+    -- implement an interface for a specific type.
+
+  `impl!<T> SomeGenericInterface!<T> for MyType`
+    -- this is illegal, because in the old compiler, a generic impl could only target a generic type.
+       We should try to restructure how impls work to make this happen. even doing something like:
+        `impl!<T> T ..`
+       should be legal.
+
+*/
+StmtImpl :: struct {}
+
+/* 
+  defining a free function, or a method.
+  this can also serve as a prototype for a function within an interface.
+  depending on the context
+
+  function :: fn() {}     
+  function :: fn(a: A) {} 
+
+  impl Type {                                     
+    some_method :: fn(self) -> s32 { return 0; }  
+  }                                               
+
+  SomeInterface :: interface {
+    my_prototype :: fn(self, other: Self) -> Self;
+    my_default_function :: fn() -> s32 {
+      return 0;
+    }
+  }
+*/
+StmtFunction :: struct {}
+
+/*  
+  just a block scope. used for many things, such as function blocks, control flow statement's blocks,
+  and just simple nested block scopes as standalone statements themselves within a function.
+*/
+StmtBlock :: struct {}
+
+/* 
+  : basic variable declaration :
+  { a: s32;        } -- no default value, typed.
+  { a: s32 = 0;    } -- typed, default value.
+  { a := 0;        } -- inferred.
+  { mut a: s32;    } -- mut, typed, no default.
+  { mut a: s32 = 0 } -- mut, typed, with default.
+  { mut a := 0;    } -- mut, inferred.
+*/
+StmtVariable :: struct {}
+
+/* 
+  while {
+
+  }
+
+  while true {
+
+  }
+*/
+StmtWhile :: struct {}
+
+/* 
+  if true {
+
+  } else {
+
+  }
+
+  if get_bool() then println(1);
+*/
+StmtIf :: struct {}
+/* else statement. */
+StmtElse :: struct {}
+
+/* 
+  return $expr;
+  return;
+  ... => $expr (where ... could be something that would expect a block. if, for, function, etc.)
+*/
+StmtReturn :: struct {}
+
+/* self explanatory. */
+StmtContinue :: struct {}
+StmtBreak :: struct {}
+
+/*  
+  for i in ... {}
+
+  we can simply iterate anything that implements Iterator!<T>
+  examples are Range (0..10, etc) List!<T>, and so on.
+    -- for i in 0..10 {}
+
+  we can destructure a struct/tuple while iterating.
+    -- for k, v in list_of_vec2s {..}
+
+  we can take mutable references to said destructured elements.
+  in the original compiler, this had very strange behaviour, and 
+  it may be a good idea to just remove this style.
+    -- for *x, y in list_of_vec2s {
+         *x = 20.0; // and we can mutate this.
+       }
+*/
+StmtFor :: struct {}
+
+/* 
+  Switch over some values.
+
+  for the arms of it, the general syntax is 
+    -- $cond: { .. some block .. }
+
+  an 'implicit return' expression body would be
+    -- $cond => $expr_return_value
+
+  by default in the old compiler, this would compile to effectively
+  to a bunch of if else statements, and the compiler would either use == operator in C,
+  or use an operator overload function provided by the operand type.
+
+  This is likely to be mostly the same in this new compiler.
+
+  example:
+    v: SomeEnum;
+    switch v {
+      SomeEnum::A: { 
+        print("it was SomeEnum::A");
+      }
+      SomeEnum::B => print("it was SomeEnum::B"), // Note that this is an implicit return.
+    }
+*/
+StmtSwitch :: struct {}
+
+/*  
+  This is just used by some '#' directives, where a node was expected.
+  of course, it does nothing.
+*/
+StmtNoop :: struct {}
+
+/* 
+  alias a type.
+  -- alias MyAlias :: ExistingType!<T>;
+
+  in the old compiler, this was not able to use generic parameters nor where expressions.
+  we should allow that this time around.
+  -- alias MyAlias!<T, T1> :: (T, T1) where T: Eq & EqWith!<T1>, T1: IsNumeric | IsPointer;
+*/
+StmtAlias :: struct {}
+
+/* 
+  We used to call this "Tuple Destructure" but it spans more uses than just tuples.
+  It can also be used for destructuring structs.
+
+  a, b := (0, 1);
+  mut a, b := (0, 1);
+  mut a, mut b := (0, 1);
+
+  v: Vec2;
+  x, y := v;
+
+  If we support tagged unions in a better fashion, we'll also have to support something like this:
+  { x: x, y: y } := tagged_union_value;
+
+  We could expand our "struct destructure" to use the above syntax, so we can cherry pick properties,
+  instead of always just using the order of the struct.
+*/
+StmtDestructure :: struct {}
+
+/* 
+  Nodes in our old compiler that have references to
+  statements and inherit from statement themselves:
+
   ASTBlock
   ASTProgram
   ASTStatementList
   ASTModule
   ASTDefer
 */
+#region SubNode {
+  impl SubNode for ExprLiteral {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Literal;
+    }
+  }
+  impl SubNode for ExprUnary {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Unary;
+    }
+  }
+  impl SubNode for ExprBinary {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Binary;
+    }
+  }
+  impl SubNode for ExprDot {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Dot;
+    }
+  }
+  impl SubNode for ExprScopeResolution {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::ScopeResolution;
+    }
+  }
+  impl SubNode for ExprIndex {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Index;
+    }
+  }
+  impl SubNode for ExprCall {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Call;
+    }
+  }
+
+  impl SubNode for ExprTuple {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Tuple;
+    }
+  }
+  impl SubNode for ExprRange {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Range;
+    }
+  }
+  impl SubNode for ExprSizeOf {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::SizeOf;
+    }
+  }
+  impl SubNode for ExprTypeOf {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::TypeOf;
+    }
+  }
+  impl SubNode for ExprStructInitializer {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::StructInitializer;
+    }
+  }
+  impl SubNode for ExprCollectionInitializer {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::CollectionInitializer;
+    }
+  }
+  impl SubNode for ExprCast {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Cast;
+    }
+  }
+  impl SubNode for ExprLambda {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Lambda;
+    }
+  }
+  impl SubNode for ExprType {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Type;
+    }
+  }
+  impl SubNode for ExprWhere {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::Where;
+    }
+  }
+  impl SubNode for ExprSelfType {
+    get_tag :: fn() -> NodeTag {
+      return NodeTag::SelfType;
+    }
+  }
+}

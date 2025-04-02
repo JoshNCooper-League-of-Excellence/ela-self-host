@@ -5,6 +5,7 @@ import ast::*;
 import error::*;
 import lexer::*;
 import type::*;
+import scope::*;
 
 main :: fn() {
   mut args := Env::args();
@@ -27,10 +28,4 @@ main :: fn() {
   }
 
   mut interner := Interner::new();
-
-  print("\033[0m");
-  for type in interner.types {
-    println((type.scalar_info, type.basename));
-  }
-
 }

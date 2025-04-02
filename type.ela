@@ -107,16 +107,9 @@ impl IsTypeInfo for StructTypeInfo {}
 impl IsTypeInfo for TupleTypeInfo {}
 
 StmtTypeDeclaration :: struct {}
-TypeDescriptor :: struct {
-  modifiers:     List!<TypeModifier>,
-  generic_args:  List!<Type>,
-  interfaces:    List!<Type>,
-  declaring_node: Option!<StmtTypeDeclaration>,
-  base_type: Option!<Type>,
-  generic_base_type: Type,
-  basename: InternedString,
-  tag: TypeTag,
 
+TypeDescriptor :: struct {
+  tag: TypeTag,
   #anon :: union {
     interface_info: InterfaceTypeInfo,
     function_info:  FunctionTypeInfo,
@@ -124,7 +117,15 @@ TypeDescriptor :: struct {
     enum_info:      EnumTypeInfo,
     struct_info:    StructTypeInfo,
     tuple_info:     TupleTypeInfo,
-  }
+  },
+
+  modifiers:     List!<TypeModifier>,
+  generic_args:  List!<Type>,
+  interfaces:    List!<Type>,
+  declaring_node: Option!<StmtTypeDeclaration>,
+  base_type: Option!<Type>,
+  generic_base_type: Type,
+  basename: InternedString,
 }
 
 impl Format for TypeDescriptor {

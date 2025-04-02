@@ -1,0 +1,52 @@
+import core::*;
+import type::*;
+import ast::*;
+
+Mutable :: enum {
+  No,
+  Yes,
+}
+
+SymbolTag :: enum {
+  Variable,
+  Function,
+  Type,
+  GenericTemplate,
+}
+
+SymVariable :: struct {
+  type: Type,
+  mutable: Mutable,
+  declaring_node: *mut Node,
+}
+
+SymFunction :: struct {
+  type: Type,
+  declaring_node: *mut Node,
+}
+
+SymType :: struct {
+  type: Type,
+  declaring_node: *mut Node,
+}
+
+SymGenericTemplate :: struct {
+  template: Type,
+  declaring_node: *mut Node,
+}
+
+Sym :: struct {
+  parent: *mut Scope,
+  tag: SymbolTag,
+  #anon :: union {
+    variable: SymVariable,
+    function: SymFunction,
+    type: SymType,
+    generic_template: SymGenericTemplate,
+  }
+}
+
+Scope :: struct {
+  name: InternedString,
+  symbols: Map!<InternedString, Sym>,
+}
