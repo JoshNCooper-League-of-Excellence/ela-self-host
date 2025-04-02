@@ -48,10 +48,6 @@ NodeTag :: enum {
   SelfType,
 }
 
-SubNode :: interface {
-  get_tag :: fn() -> NodeTag;
-}
-
 Node :: struct {
   tag: NodeTag,
   data: *mut void,
@@ -228,7 +224,6 @@ StmtFile :: struct {
 StmtModule :: struct {
   nodes: List!<*mut Node>,
 }
-
 
 StmtTypeTag :: enum { Struct, Union, Interface, Enum, EnumUnion, }
 
@@ -447,96 +442,3 @@ StmtDestructure :: struct {}
   ASTModule
   ASTDefer
 */
-#region SubNode {
-  impl SubNode for ExprLiteral {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Literal;
-    }
-  }
-  impl SubNode for ExprUnary {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Unary;
-    }
-  }
-  impl SubNode for ExprBinary {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Binary;
-    }
-  }
-  impl SubNode for ExprDot {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Dot;
-    }
-  }
-  impl SubNode for ExprScopeResolution {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::ScopeResolution;
-    }
-  }
-  impl SubNode for ExprIndex {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Index;
-    }
-  }
-  impl SubNode for ExprCall {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Call;
-    }
-  }
-
-  impl SubNode for ExprTuple {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Tuple;
-    }
-  }
-  impl SubNode for ExprRange {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Range;
-    }
-  }
-  impl SubNode for ExprSizeOf {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::SizeOf;
-    }
-  }
-  impl SubNode for ExprTypeOf {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::TypeOf;
-    }
-  }
-  impl SubNode for ExprStructInitializer {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::StructInitializer;
-    }
-  }
-  impl SubNode for ExprCollectionInitializer {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::CollectionInitializer;
-    }
-  }
-  impl SubNode for ExprCast {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Cast;
-    }
-  }
-  impl SubNode for ExprLambda {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Lambda;
-    }
-  }
-  impl SubNode for ExprType {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Type;
-    }
-  }
-  impl SubNode for ExprWhere {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::Where;
-    }
-  }
-  impl SubNode for ExprSelfType {
-    get_tag :: fn() -> NodeTag {
-      return NodeTag::SelfType;
-    }
-  }
-}
