@@ -46,6 +46,38 @@ NodeTag :: enum {
     'Self' type.
   */
   SelfType,
+
+  Type,
+  /* 
+    Descriptions of the statements can be found on the declarations of their structs. 
+  */
+  File,
+  Module,
+  Import,
+
+  Struct,
+  Enum,
+  Union,
+  EnumUnion,
+  Interface,
+  Impl,
+  Function,
+  Variable,
+  
+  Block,
+  For,
+  While,
+  Switch,
+  If,
+  Else,
+
+  Return,
+  Continue,
+  Break,
+  
+  Noop,
+  Alias,
+  Destructure,
 }
 
 Node :: struct {
@@ -218,6 +250,46 @@ StmtFile :: struct {
 }
 
 /* 
+  An actual import statement, which will produce a StmtFile.
+
+  import module; 
+    -- basic import. requires a qualification each access, 'import std; std::print()' etc.
+
+  import module::*; 
+    -- import all symbols from a module. in the old compiler, this was recursive - it would import
+    every symbol from every submodule as well, (at least whichever symbols were imported in the target module)
+
+  import module::{print, println};
+    -- import specific modules, functions, types, or any symbol from a module.
+    to be precise and avoid muddying your namespaces, this is the reccomended way to import.
+
+  in the old compiler, something like:
+
+  `import std::{
+    fs::File,
+    pthread::{
+      Mutex,
+      Thread,
+      primitives::sync_lock::*
+    },
+    raylib::*,
+  };
+
+  was not possible. certainly we want to support this stuff, it's nice.
+*/
+
+NestedImport :: struct {
+  name: InternedString, // Name of the module or symbol (e.g., `fs`, `pthread`).
+  import_all: bool,     // True if `::*` is used to import all symbols.
+  specific_symbols: Option!<List!<NestedImport>>, // Recursive nested imports or specific symbols.
+}
+
+StmtImport :: struct {
+  path: List!<InternedString>, // Base path of the import (e.g., `std`, `std::fs`).
+  nested_imports: Option!<List!<NestedImport>>, // Nested imports for structured imports.
+}
+
+/* 
   this is a module that's declared underneath a file, essentially a submodule.
   `module my_module {...}`
 */
@@ -225,34 +297,42 @@ StmtModule :: struct {
   nodes: List!<*mut Node>,
 }
 
-StmtTypeTag :: enum { Struct, Union, Interface, Enum, EnumUnion, }
+StmtStruct :: struct {
+  is_union: bool,
+  name: InternedString,
+  fields: List!<(InternedString, *mut Node)>,
+}
 
-/* 
-  this encompasses all type declarations.
-    - struct
-    - union
-    - enum
-    - enum(union) (tagged union, ADT)
-    - interface
+StmtEnum :: struct {
+  name: InternedString,
+  variants: List!<(InternedString, Option!<*mut Node>)>
+}
 
-  TODO: decide whether we want to include all of these together, or seperate them into their own structs.
-  
-  all of these, excluding enums, can have generic parameters.
-  they can also have `where` clauses.
-  following a very similar syntax:
+EnumUnionVariantTag :: enum {
+  Tuple,
+  Struct,
+  Marker,
+}
 
-  `A :: struct!<T>`
+EnumUnionVariant :: struct {
+  tag: EnumUnionVariantTag,
+  name: InternedString,
+  #anon :: union {
+    tuple_variant: List!<*mut Node>, // types
+    struct_variant: List!<(InternedString, *mut Node)> // { name: type, ... } fields.
+    // Marker is just a named variant with an integer value.
+  }
+}
 
-  `B :: union!<T, T1> where T: Sized & IsFloat, 
-                      T1: IsFloat | IsInteger, 
-                      T: Blah`
+// Tagged union.
+StmtEnumUnion :: struct {
+  name: InternedString,
+  variants: List!<EnumUnionVariant>
+}
 
-  `C :: interface!<T> where T: Sized`
-  
-*/
-StmtType :: struct {
-  // struct, union, interface, enum, enum(union)
-  type_tag: StmtTypeTag, 
+StmtInterface :: struct {
+  name: InternedString,
+  methods: List!<*mut Node> // a list of `StmtFunction`s
 }
 
 /* 
