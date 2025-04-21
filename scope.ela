@@ -2,40 +2,40 @@ import core::*;
 import type::*;
 import ast::*;
 
-Mutable :: enum {
+enum Mutable {
   No,
   Yes,
 }
 
-SymbolTag :: enum {
+enum SymbolTag {
   Variable,
   Function,
   Type,
   GenericTemplate,
 }
 
-SymVariable :: struct {
+struct SymVariable {
   type: Type,
   mutable: Mutable,
   declaring_node: *mut Node,
 }
 
-SymFunction :: struct {
+struct SymFunction {
   type: Type,
   declaring_node: *mut Node,
 }
 
-SymType :: struct {
+struct SymType {
   type: Type,
   declaring_node: *mut Node,
 }
 
-SymGenericTemplate :: struct {
+struct SymGenericTemplate {
   template: Type,
   declaring_node: *mut Node,
 }
 
-Sym :: struct {
+struct Sym {
   parent: *mut Scope,
   tag: SymbolTag,
   #anon :: union {
@@ -46,7 +46,7 @@ Sym :: struct {
   }
 }
 
-Scope :: struct {
+struct Scope {
   name: InternedString,
   symbols: Map!<InternedString, Sym>,
 }

@@ -6,7 +6,7 @@ import error::*;
 import ast::*;
 import type::*;
 
-#test test_lexing_sample_file :: fn() {
+#test fn test_lexing_sample_file() {
   mut state := State::from_file(String::from("ela_source/lexer_test.ela"));
   mut lexer := Lexer::new();
   lexer.push_state(state);
@@ -29,7 +29,7 @@ import type::*;
   lexer.expect(TType::Where);
   lexer.expect(TType::Size_Of);
   lexer.expect(TType::Type_Of);
-  lexer.expect(TType::Fn);
+  lexer.expect(Fn TType);
   lexer.expect(TType::Switch);
   lexer.expect(TType::Then);
   lexer.expect(TType::Return);
@@ -39,9 +39,9 @@ import type::*;
   lexer.expect(TType::While);
   lexer.expect(TType::If);
   lexer.expect(TType::Else);
-  lexer.expect(TType::Struct);
-  lexer.expect(TType::Union);
-  lexer.expect(TType::Enum);
+  lexer.expect(Struct TType);
+  lexer.expect(Union TType);
+  lexer.expect(Enum TType);
   lexer.expect(TType::True);
   lexer.expect(TType::False);
   lexer.expect(TType::Null);

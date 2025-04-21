@@ -2,14 +2,14 @@ import core::*;
 
 alias Type :: *mut TypeDescriptor;
 
-ConversionType :: enum {
+enum ConversionType {
   Prohibited,
   NoneNeeded,
   Implicit,
   Explicit,
 }
 
-ScalarTag :: enum {
+enum ScalarTag {
   Void,
   S8,
   S16,
@@ -26,7 +26,7 @@ ScalarTag :: enum {
   Bool,
 }
 
-TypeTag :: enum {
+enum TypeTag {
   Scalar,
   Function,
   Struct,
@@ -36,29 +36,29 @@ TypeTag :: enum {
   Interface,
 }
 
-TypeModifierTag :: enum {
+enum TypeModifierTag {
   PointerConst,
   PointerMut,
   Array,
 }
 
-TypeModifier :: struct {
+struct TypeModifier {
   tag: TypeModifierTag,
   array_size: u64,
 }
 
 impl TypeModifier {
-  ptr_mut :: fn() -> #self {
+  fn ptr_mut() -> Self {
     return .{
       tag: TypeModifierTag::PointerMut,
     }
   }
-  ptr_const :: fn() -> #self {
+  fn ptr_const() -> Self {
     return .{
       tag: TypeModifierTag::PointerConst,
     }
   }
-  array :: fn(size: u64) -> #self {
+  fn array(size: u64) -> Self {
     return .{
       tag: TypeModifierTag::Array,
       array_size: size,
@@ -66,36 +66,36 @@ impl TypeModifier {
   }
 }
 
-IsTypeInfo :: interface {}
+trait IsTypeInfo {}
 
-InterfaceTypeInfo :: struct {
+struct InterfaceTypeInfo {
   methods: List!<(InternedString, Type)>,
 }
 
-FunctionTypeInfo :: struct {
+struct FunctionTypeInfo {
   parameters: List!<Type>,
   return_type: Type,
   is_varargs: bool,
 }
 
-ScalarTypeInfo :: struct {
+struct ScalarTypeInfo {
   tag: ScalarTag,
   is_integral: bool,
   size: u64,
 }
 
-EnumTypeInfo :: struct {
+struct EnumTypeInfo {
   element_type: Type,
   is_flags: bool,
 }
 
-StructTypeInfo :: struct {
+struct StructTypeInfo {
   is_forward_declared: bool,
   is_anonymous: bool,
   is_union: bool,
 }
 
-TupleTypeInfo :: struct {
+struct TupleTypeInfo {
   subtypes: List!<Type>,
 }
 
@@ -106,9 +106,9 @@ impl IsTypeInfo for EnumTypeInfo {}
 impl IsTypeInfo for StructTypeInfo {}
 impl IsTypeInfo for TupleTypeInfo {}
 
-StmtTypeDeclaration :: struct {}
+struct StmtTypeDeclaration {}
 
-TypeDescriptor :: struct {
+struct TypeDescriptor {
   tag: TypeTag,
   #anon :: union {
     interface_info: InterfaceTypeInfo,
@@ -129,7 +129,7 @@ TypeDescriptor :: struct {
 }
 
 impl Format for TypeDescriptor {
-  format :: fn(*const self, builder: *mut StringBuilder, options: FormatOptions) {
+  fn format(*const self, builder: *mut StringBuilder, options: FormatOptions) {
     builder.append("Type {\n");
     builder.appendf("  modifiers: %,\n", (self.modifiers,), options);
     builder.appendf("  generic_args: %,\n", (self.generic_args,), options);
@@ -142,8 +142,8 @@ impl Format for TypeDescriptor {
     switch self.tag {
       TypeTag::Scalar:    {     builder.appendf("  info: %,\n", (self.scalar_info,), options); }
       TypeTag::Function:  {   builder.appendf("  info: %,\n", (self.function_info,), options); }
-      TypeTag::Struct:    {     builder.appendf("  info: %,\n", (self.struct_info,), options); }
-      TypeTag::Enum:      {       builder.appendf("  info: %,\n", (self.enum_info,), options); }
+      Struct TypeTag:    {     builder.appendf("  info: %,\n", (self.struct_info,), options); }
+      Enum TypeTag:      {       builder.appendf("  info: %,\n", (self.enum_info,), options); }
       TypeTag::Tuple:     {      builder.appendf("  info: %,\n", (self.tuple_info,), options); }
       TypeTag::Interface: {  builder.appendf("  info: %,\n", (self.interface_info,), options); }
     }
@@ -151,13 +151,13 @@ impl Format for TypeDescriptor {
   }
 }
 
-Interner :: struct {
+struct Interner {
   types: List!<Type>,
 }
 
 impl Interner {
-  new :: fn() -> #self {
-    mut self: #self;
+  fn new() -> Self {
+    mut self: Self;
     self.bool_type();
     self.void_type();
     self.s8_type();
@@ -173,12 +173,12 @@ impl Interner {
     return self;
   }
 
-  create_type :: fn!<TypeInfo>(
+  fn create_type!<TypeInfo>(
     *mut self,
     tag: TypeTag,
     basename: InternedString, 
     type_info: TypeInfo, 
-    modifiers: TypeModifier[], 
+    modifiers: List!<TypeModifier>, 
     base_type: Type) -> Type where TypeInfo: IsTypeInfo {
     mut descriptor : TypeDescriptor = .{
       tag: tag,
@@ -211,7 +211,7 @@ impl Interner {
     return type;
   }
 
-  bool_type :: fn(*mut self) -> Type {
+  fn bool_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -229,7 +229,7 @@ impl Interner {
     return type;
   }
 
-  void_type :: fn(*mut self) -> Type {
+  fn void_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -247,7 +247,7 @@ impl Interner {
     return type;
   }
 
-  s8_type :: fn(*mut self) -> Type {
+  fn s8_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -265,7 +265,7 @@ impl Interner {
     return type;
   }
 
-  s16_type :: fn(*mut self) -> Type {
+  fn s16_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -283,7 +283,7 @@ impl Interner {
     return type;
   }
 
-  s32_type :: fn(*mut self) -> Type {
+  fn s32_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -301,7 +301,7 @@ impl Interner {
     return type;
   }
 
-  s64_type :: fn(*mut self) -> Type {
+  fn s64_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -319,7 +319,7 @@ impl Interner {
     return type;
   }
 
-  u8_type :: fn(*mut self) -> Type {
+  fn u8_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -337,7 +337,7 @@ impl Interner {
     return type;
   }
 
-  u16_type :: fn(*mut self) -> Type {
+  fn u16_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -355,7 +355,7 @@ impl Interner {
     return type;
   }
 
-  u32_type :: fn(*mut self) -> Type {
+  fn u32_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -373,7 +373,7 @@ impl Interner {
     return type;
   }
 
-  u64_type :: fn(*mut self) -> Type {
+  fn u64_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -391,7 +391,7 @@ impl Interner {
     return type;
   }
 
-  f32_type :: fn(*mut self) -> Type {
+  fn f32_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(
@@ -409,7 +409,7 @@ impl Interner {
     return type;
   }
 
-  f64_type :: fn(*mut self) -> Type {
+  fn f64_type(*mut self) -> Type {
     #static mut type: Type;
     if !type {
       type = self.create_type(

@@ -2,7 +2,7 @@ import lexer::*;
 import type::*;
 import scope::*;
 
-NodeTag :: enum {
+enum NodeTag {
   // identifiers, numeric / string literals, etc.
   Literal,
   // negate, not, etc
@@ -37,7 +37,7 @@ NodeTag :: enum {
   // typeof(s32) :: reflection
   TypeOf,
   /*
-    getter :: fn!<T, Other>() where T: Sized,
+    fn getter!<T, Other>() where T: Sized,
            Other: List!<T> { ... }
   */
   Where,
@@ -80,10 +80,9 @@ NodeTag :: enum {
   Destructure,
 }
 
-Node :: struct {
+struct Node {
   tag: NodeTag,
   data: *mut void,
-
   location: SourceLocation,
 
   type:   Option!<Type>,
@@ -92,7 +91,7 @@ Node :: struct {
 }
 
 impl Node {
-  new :: fn(location: SourceLocation, tag: NodeTag, data: *mut void) -> Node {
+  fn new(location: SourceLocation, tag: NodeTag, data: *mut void) -> Node {
     return .{
       location: location,
       tag: tag,
@@ -103,7 +102,7 @@ impl Node {
 
 #region Expression {
 
-  LiteralTag :: enum {
+  enum LiteralTag {
     Identifier,
     Integer,
     Float,
@@ -114,71 +113,71 @@ impl Node {
     Null,
   }
 
-  ExprLiteral :: struct {
+  struct ExprLiteral {
     tag:   LiteralTag,
     value: InternedString,
   }
 
-  ExprUnary :: struct {
+  struct ExprUnary {
     left: *mut Node,
     operator: TType,
   }
 
-  ExprBinary :: struct {
+  struct ExprBinary {
     left: *mut Node,
     right: *mut Node,
     operator: TType,
   }
 
-  ExprDot :: struct {
+  struct ExprDot {
     left: *mut Node,
     member: InternedString,
   }
 
-  ExprScopeResolution :: struct {
+  struct ExprScopeResolution {
     left: *mut Node,
     member: InternedString,
   }
 
-  ExprIndex :: struct {
+  struct ExprIndex {
     left: *mut Node,
     index: Node,
   }
 
-  ExprCall :: struct {
+  struct ExprCall {
     left: *mut Node,
     arguments: List!<Node>,
   }
 
-  ExprTuple :: struct {
+  struct ExprTuple {
     values: List!<*mut Node>
   }
 
-  ExprRange :: struct {
+  struct ExprRange {
     begin: *mut Node,
     end: *mut Node,
     inclusive: bool, // include the last value. 0..=100 would go 0->100, whereas 0..100 goes 0->99
   }
 
-  ExprSizeOf :: struct {
+  struct ExprSizeOf {
     type: *mut Node,
   }
 
-  ExprTypeOf :: struct {
+  struct ExprTypeOf {
     type: *mut Node,
   }
 
-  ExprStructInitializer :: struct {
+  struct ExprStructInitializer {
     target: Option!<*mut Node>, // if we do Type.{}, 'Type' would be our target.
     members: Map!<InternedString, *mut Node>,
   }
 
-  ExprCollectionInitializer :: struct {
+  struct ExprCollectionInitializer {
     target: Option!<*mut Node>, // if we do Type.[], 'Type' would be our target.
     members: List!<*mut Node>,
   }
 
-  ExprCast :: struct {
+  struct ExprCast {
     // x + 2 as s32;
     //          ^^^<- target.
     // ^^^^^<- expression.
@@ -186,16 +185,16 @@ impl Node {
     expression: *mut Node,
   }
 
-  ExprLambda :: struct {
+  struct ExprLambda {
     // TODO:  We don't have function declarations fleshed out yet. We'll wait on that.
   }
 
-  ExprTypeTag :: enum {
+  enum ExprTypeTag {
     Normal,
     Function,
   }
 
-  ExprType :: struct {
+  struct ExprType {
     tag: ExprTypeTag,
 
     /*
@@ -223,30 +222,13 @@ impl Node {
   /*
     Just a marker node for when we need to resolve when `Self` is used.
   */
-  ExprSelfType :: struct {}
+  struct ExprSelfType {}
 
-  ExprWhere :: struct {
+  struct ExprWhere {
     constrants: List!<(*mut Node, *mut Node)>
     //                       ^^^^<- predicate/condition
     //                 ^^^^<- target type
   }
-}
-
-/* 
-  the type of module created when importing a file.
-  `import std::some_module`
-
-  this is not done for 
-  `#include "some_file.ela"
-  that is just basically a copy-paste of the text, and
-  doesn't represent the same thing as importing.
-
-  this is also the root level, basic building block for every program, such as a main file.
-
-  (( this will probably need to be worked out, and perhaps split into a few nodes for all the stuff described above. ))
-*/
-StmtFile :: struct {
-  nodes: List!<*mut Node>,
 }
 
 /* 
@@ -277,44 +259,42 @@ StmtFile :: struct {
 
   was not possible. certainly we want to support this stuff, it's nice.
 */
-
-NestedImport :: struct {
+struct NestedImport {
   name: InternedString, // Name of the module or symbol (e.g., `fs`, `pthread`).
   import_all: bool,     // True if `::*` is used to import all symbols.
   specific_symbols: Option!<List!<NestedImport>>, // Recursive nested imports or specific symbols.
 }
 
-StmtImport :: struct {
+struct StmtImport {
   path: List!<InternedString>, // Base path of the import (e.g., `std`, `std::fs`).
   nested_imports: Option!<List!<NestedImport>>, // Nested imports for structured imports.
 }
-
 /* 
   this is a module that's declared underneath a file, essentially a submodule.
   `module my_module {...}`
 */
-StmtModule :: struct {
+struct StmtModule {
   nodes: List!<*mut Node>,
 }
 
-StmtStruct :: struct {
+struct StmtStruct {
   is_union: bool,
   name: InternedString,
   fields: List!<(InternedString, *mut Node)>,
 }
 
-StmtEnum :: struct {
+struct StmtEnum {
   name: InternedString,
   variants: List!<(InternedString, Option!<*mut Node>)>
 }
 
-EnumUnionVariantTag :: enum {
+enum EnumUnionVariantTag {
   Tuple,
   Struct,
   Marker,
 }
 
-EnumUnionVariant :: struct {
+struct EnumUnionVariant {
   tag: EnumUnionVariantTag,
   name: InternedString,
   #anon :: union {
@@ -325,12 +305,12 @@ EnumUnionVariant :: struct {
 }
 
 // Tagged union.
-StmtEnumUnion :: struct {
+struct StmtEnumUnion {
   name: InternedString,
   variants: List!<EnumUnionVariant>
 }
 
-StmtInterface :: struct {
+struct StmtInterface {
   name: InternedString,
   methods: List!<*mut Node> // a list of `StmtFunction`s
 }
@@ -348,7 +328,7 @@ StmtInterface :: struct {
     -- it can also have where clause constraints.
 
   `impl SomeInterface for MyType`
-    -- implement an interface for a specific type.
+    -- implement an trait for a specific type.
 
   `impl!<T> SomeGenericInterface!<T> for MyType`
     -- this is illegal, because in the old compiler, a generic impl could only target a generic type.
@@ -357,34 +337,34 @@ StmtInterface :: struct {
        should be legal.
 
 */
-StmtImpl :: struct {}
+struct StmtImpl {}
 
 /* 
   defining a free function, or a method.
-  this can also serve as a prototype for a function within an interface.
+  this can also serve as a prototype for a function within an trait.
   depending on the context
 
-  function :: fn() {}     
-  function :: fn(a: A) {} 
+  fn function() {}     
+  fn function(a: A) {} 
 
   impl Type {                                     
-    some_method :: fn(self) -> s32 { return 0; }  
+    fn some_method(self) -> s32 { return 0; }  
   }                                               
 
-  SomeInterface :: interface {
-    my_prototype :: fn(self, other: Self) -> Self;
-    my_default_function :: fn() -> s32 {
+  trait SomeInterface {
+    fn my_prototype(self, other: Self) -> Self;
+    fn my_default_function() -> s32 {
       return 0;
     }
   }
 */
-StmtFunction :: struct {}
+struct StmtFunction {}
 
 /*  
   just a block scope. used for many things, such as function blocks, control flow statement's blocks,
   and just simple nested block scopes as standalone statements themselves within a function.
 */
-StmtBlock :: struct {}
+struct StmtBlock {}
 
 /* 
   : basic variable declaration :
@@ -395,7 +375,7 @@ StmtBlock :: struct {}
   { mut a: s32 = 0 } -- mut, typed, with default.
   { mut a := 0;    } -- mut, inferred.
 */
-StmtVariable :: struct {}
+struct StmtVariable {}
 
 /* 
   while {
@@ -406,7 +386,7 @@ StmtVariable :: struct {}
 
   }
 */
-StmtWhile :: struct {}
+struct StmtWhile {}
 
 /* 
   if true {
@@ -417,20 +397,20 @@ StmtWhile :: struct {}
 
   if get_bool() then println(1);
 */
-StmtIf :: struct {}
+struct StmtIf {}
 /* else statement. */
-StmtElse :: struct {}
+struct StmtElse {}
 
 /* 
   return $expr;
   return;
   ... => $expr (where ... could be something that would expect a block. if, for, function, etc.)
 */
-StmtReturn :: struct {}
+struct StmtReturn {}
 
 /* self explanatory. */
-StmtContinue :: struct {}
-StmtBreak :: struct {}
+struct StmtContinue {}
+struct StmtBreak {}
 
 /*  
   for i in ... {}
@@ -449,7 +429,7 @@ StmtBreak :: struct {}
          *x = 20.0; // and we can mutate this.
        }
 */
-StmtFor :: struct {}
+struct StmtFor {}
 
 /* 
   Switch over some values.
@@ -475,13 +455,13 @@ StmtFor :: struct {}
       SomeEnum::B => print("it was SomeEnum::B"), // Note that this is an implicit return.
     }
 */
-StmtSwitch :: struct {}
+struct StmtSwitch {}
 
 /*  
   This is just used by some '#' directives, where a node was expected.
   of course, it does nothing.
 */
-StmtNoop :: struct {}
+struct StmtNoop {}
 
 /* 
   alias a type.
@@ -491,7 +471,7 @@ StmtNoop :: struct {}
   we should allow that this time around.
   -- alias MyAlias!<T, T1> :: (T, T1) where T: Eq & EqWith!<T1>, T1: IsNumeric | IsPointer;
 */
-StmtAlias :: struct {}
+struct StmtAlias {}
 
 /* 
   We used to call this "Tuple Destructure" but it spans more uses than just tuples.
@@ -510,7 +490,7 @@ StmtAlias :: struct {}
   We could expand our "struct destructure" to use the above syntax, so we can cherry pick properties,
   instead of always just using the order of the struct.
 */
-StmtDestructure :: struct {}
+struct StmtDestructure {}
 
 /* 
   Nodes in our old compiler that have references to

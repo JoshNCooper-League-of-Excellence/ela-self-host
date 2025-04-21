@@ -1,8 +1,8 @@
 
 import fmt;
 
-main :: fn() {
-  hellos := str[]::init(.[
+fn main() {
+  mut hellos := List!<str>::init(.[
     "Hello, World!",
     "Привет, Мир!",
     "Hola, Mundo!",

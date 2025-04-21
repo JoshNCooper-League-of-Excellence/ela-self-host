@@ -1,13 +1,13 @@
 import fmt::*;
-import interned::*;
-import fs::*;
-import ast::*;
-import error::*;
-import lexer::*;
-import type::*;
-import scope::*;
 
-main :: fn() {
+import lexer::{
+  Token,
+  State,
+  Lexer,
+  TType,
+};
+
+fn main() {
   mut args := Env::args();
   mut filename: str;
   if args.length >= 2 {
@@ -24,8 +24,7 @@ main :: fn() {
   lexer.push_state(state);
 
   while !lexer.peek().is_type(TType::Eof) {
-    lexer.eat();
+    println(lexer.eat());
   }
 
-  mut interner := Interner::new();
 }

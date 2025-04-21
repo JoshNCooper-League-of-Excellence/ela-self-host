@@ -2,7 +2,7 @@ import lexer::*;
 import fmt::*;
 import math::clamp;
 
-throw_error :: fn!<T>(msg: T, location: SourceLocation) where T: AsByteSlice {
+fn throw_error!<T>(msg: T, location: SourceLocation) where T: AsByteSlice {
   mut builder: StringBuilder;
   builder.append("\n\033[1;31mat:\n\t\033[1;34m");
   location.format(&mut builder, FormatOptions::default());

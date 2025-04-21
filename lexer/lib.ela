@@ -1,6 +1,6 @@
 #include "../core.ela";
 
-TType :: enum {
+enum TType {
   Eof = -1,
   Identifier,
   Integer,
@@ -89,7 +89,7 @@ TType :: enum {
   Defer,
 
   Impl,      // impl
-  Interface, // interface
+  Interface, // trait
   Where,
 
   Size_Of,
@@ -106,7 +106,7 @@ TType :: enum {
   Const
 }
 
-init_ttype_lut :: fn() -> Map!<u64, str> {
+fn init_ttype_lut() -> Map!<u64, str> {
   type := typeof(TType);
   mut lut: Map!<u64, str>;
   for field in type.fields {
@@ -115,7 +115,7 @@ init_ttype_lut :: fn() -> Map!<u64, str> {
   return lut;
 }
 
-ttype_to_string :: fn(type: TType) -> str {
+fn ttype_to_string(type: TType) -> str {
   #static mut lut: *mut Map!<u64, str>;
   if !lut {
     lut = new(init_ttype_lut());
@@ -123,19 +123,19 @@ ttype_to_string :: fn(type: TType) -> str {
   return lut.get(type).unwrap();
 }
 
-SourceLocation :: struct {
+struct SourceLocation {
   line: u64,
   column: u64,
   file: u64,
 }
 
 impl SourceLocation {
-  #static files :: fn() -> *mut List!<String> {
+  #static fn files() -> *mut List!<String> {
     #static mut files: List!<String>;
     return &mut files;
   }
 
-  to_string :: fn(self) -> String {
+  fn to_string(self) -> String {
     files := SourceLocation::files();
     filename := (*files)[self.file];
     return format("%:%:%", (filename, self.line, self.column), FormatOptions::default());
@@ -143,19 +143,19 @@ impl SourceLocation {
 }
 
 impl Format for SourceLocation {
-  format :: fn(*const self, builder: *mut StringBuilder, mut options: FormatOptions) {
+  fn format(*const self, builder: *mut StringBuilder, mut options: FormatOptions) {
     builder.append_then_free(self.to_string());
   }
 }
 
-Token :: struct {
+struct Token {
   value: InternedString,
   type: TType,
   location: SourceLocation,
 }
 
 impl Token {
-  is_relational :: fn(self) -> bool{
+  fn is_relational(self) -> bool{
     return switch self.type {
       TType::LT => true,
       TType::GT => true,
@@ -169,28 +169,28 @@ impl Token {
     }
   }
 
-  is_comp_assign :: fn(self) -> bool  {
+  fn is_comp_assign(self) -> bool  {
     return self.type == TType::CompAdd || self.type == TType::CompSub || self.type == TType::CompMul || self.type == TType::CompDiv ||
            self.type == TType::CompMod || self.type == TType::CompAnd || self.type == TType::CompOr || self.type == TType::CompXor ||
            self.type == TType::CompSHL || self.type == TType::CompSHR;
   }
 
-  Eof :: fn() -> Token {
+  fn Eof() -> Token {
     #static eof: Token = .{
       type: TType::Eof,
     };
     return eof;
   }
 
-  is_type :: fn(self, type: TType) -> bool {
+  fn is_type(self, type: TType) -> bool {
     return self.type == type;
   }
 
-  is_eof :: fn(self) -> bool {
+  fn is_eof(self) -> bool {
     return self.type == TType::Eof;
   }
 
-  new :: fn(location: SourceLocation, value: String, type: TType) -> Token {
+  fn new(location: SourceLocation, value: String, type: TType) -> Token {
     return .{
       value: InternedString::new(value),
       type: type,
@@ -200,7 +200,7 @@ impl Token {
 };
 
 impl Format for Token {
-  format :: fn(*const self, builder: *mut StringBuilder, mut options: FormatOptions) {
+  fn format(*const self, builder: *mut StringBuilder, mut options: FormatOptions) {
     builder.append("Token {\n  location: ");
     builder.append_then_free(self.location.to_string());
     mut value: Option!<String>;
@@ -217,7 +217,7 @@ impl Format for Token {
 }
 
 impl Token {
-  to_string :: fn(self) -> String {
+  fn to_string(self) -> String {
     mut builder: StringBuilder;
     defer builder.deinit();
     self.format(&mut builder, FormatOptions::default());
@@ -225,7 +225,7 @@ impl Token {
   }
 }
 
-init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords: *mut Map!<str, TType>) {
+fn init_operator_and_keyword_maps(operators: *mut Map!<str, TType>, keywords: *mut Map!<str, TType>) {
   keywords.insert("const", TType::Const);
   keywords.insert("mut", TType::Mut);
   keywords.insert("module", TType::Module);
@@ -235,7 +235,7 @@ init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords:
   keywords.insert("where", TType::Where);
   keywords.insert("sizeof", TType::Size_Of);
   keywords.insert("typeof", TType::Type_Of);
-  keywords.insert("fn", TType::Fn);
+  keywords.insert("fn", Fn TType);
   keywords.insert("switch", TType::Switch);
   keywords.insert("then", TType::Then);
   keywords.insert("return", TType::Return);
@@ -245,16 +245,16 @@ init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords:
   keywords.insert("while", TType::While);
   keywords.insert("if", TType::If);
   keywords.insert("else", TType::Else);
-  keywords.insert("struct", TType::Struct);
-  keywords.insert("union", TType::Union);
-  keywords.insert("enum", TType::Enum);
+  keywords.insert("struct", Struct TType);
+  keywords.insert("union", Union TType);
+  keywords.insert("enum", Enum TType);
   keywords.insert("true", TType::True);
   keywords.insert("false", TType::False);
   keywords.insert("null", TType::Null);
   keywords.insert("as", TType::As);
   keywords.insert("impl", TType::Impl);
   keywords.insert("defer", TType::Defer);
-  keywords.insert("interface", TType::Interface);
+  keywords.insert("trait", TType::Interface);
   keywords.insert("Self", TType::SelfType);
 
   operators.insert("=>", TType::ExpressionBody);
@@ -311,14 +311,14 @@ init_operator_and_keyword_maps :: fn(operators: *mut Map!<str, TType>, keywords:
 
 }
 
-get_reserved_words :: fn() -> List!<str> {
+fn get_reserved_words() -> List!<str> {
   return List!<str>::init(.["auto", "break", "case", "const", "default",  "do",
                             "double", "else", "enum", "extern", "float", "for", "goto",
                             "int", "long", "return", "short", "signed",
                             "struct", "typedef", "unsigned", "volatile"]);
 }
 
-State :: struct {
+struct State {
   input: String,
   path: String,
   pos: u64,
@@ -328,7 +328,7 @@ State :: struct {
 }
 
 impl State {
-  new :: fn(path: String, input: String, file_idx: u64) -> #self {
+  fn new(path: String, input: String, file_idx: u64) -> Self {
     return .{
       path: path,
       input: input,
@@ -339,7 +339,7 @@ impl State {
     };
   }
 
-  from_file :: fn!<Path>(filename: Path) -> #self where Path: AsByteSlice {
+  fn from_file!<Path>(filename: Path) -> Self where Path: AsByteSlice {
       canonical_option := canonical_path(filename);
       if canonical_option.is_none() {
         printlnf("file '%' was unable to be located.", (filename,));
@@ -365,7 +365,7 @@ impl State {
     }
 }
 
-Lexer :: struct {
+struct Lexer {
   operators: Map!<str, TType>,
   keywords:  Map!<str, TType>,
   reserved:  List!<str>,
@@ -374,8 +374,8 @@ Lexer :: struct {
 }
 
 impl Lexer {
-  new :: fn() -> #self {
-    mut self: #self;
+  fn new() -> Self {
+    mut self: Self;
     init_operator_and_keyword_maps(&mut self.operators, &mut self.keywords);
     self.reserved = get_reserved_words();
     return self;
@@ -383,11 +383,11 @@ impl Lexer {
 }
 
 impl Lexer {
-  push_state :: fn(*mut self, state: State) {
+  fn push_state(*mut self, state: State) {
     self.states.push(state);
   }
 
-  fill_buffer_if_needed :: fn(*mut self) {
+  fn fill_buffer_if_needed(*mut self) {
     while self.lookahead_buffer.length < 8 {
       if self.states.is_empty() {
         self.lookahead_buffer.push(Token::Eof());
@@ -401,7 +401,7 @@ impl Lexer {
     }
   }
 
-  expect :: fn(*mut self, type: TType) -> Token {
+  fn expect(*mut self, type: TType) -> Token {
     token := self.eat();
     if token.type != type {
       throw_error(
@@ -414,17 +414,17 @@ impl Lexer {
     return token;
   }
 
-  peek :: fn(*mut self) -> Token {
+  fn peek(*mut self) -> Token {
     self.fill_buffer_if_needed();
     return self.lookahead_buffer.front().unwrap();
   }
 
-  eat :: fn(*mut self) -> Token {
+  fn eat(*mut self) -> Token {
     self.fill_buffer_if_needed();
     return self.lookahead_buffer.pop_front();
   }
 
-  get_token :: fn(*mut self, state: *mut State) {
+  fn get_token(*mut self, state: *mut State) {
     mut token_builder: StringBuilder;
     defer token_builder.deinit();
     

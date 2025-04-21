@@ -43,7 +43,7 @@ null
 as
 impl
 defer
-interface
+trait
 
 // reserved words
 auto
